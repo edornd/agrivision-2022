@@ -1,11 +1,11 @@
 import os
 
 from .builder import DATASETS
-from .custom import CustomDataset
+from .rcs import RCSDataset
 
 
 @DATASETS.register_module()
-class AgricultureVisionDataset(CustomDataset):
+class AgricultureVisionDataset(RCSDataset):
 
     CLASSES = ("background", "double_plant", "drydown", "endrow", "nutrient_deficiency", "planter_skip", "water",
                "waterway", "weed_cluster")
@@ -21,7 +21,7 @@ class AgricultureVisionDataset(CustomDataset):
         super().pre_pipeline(results)
         results["nir_prefix"] = self.nir_dir
 
-    def prepare_train_img(self, idx: int):
+    def prepare_batch(self, idx: int):
         img_info = self.img_infos[idx]
         nir_info = self.nir_infos[idx]
         ann_info = self.get_ann_info(idx)
