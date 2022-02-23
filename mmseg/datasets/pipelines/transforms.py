@@ -876,7 +876,11 @@ class PhotoMetricDistortion(object):
             img = self.contrast(img)
 
         # random saturation
-        img = self.saturation(img)
+        if img.shape[-1] > 3:
+            rgb = img[:, :, :-1]
+            img[:, :, :-1] = self.saturation(rgb)
+        else:
+            img = self.saturation(img)
 
         # random hue
         if img.shape[-1] > 3:

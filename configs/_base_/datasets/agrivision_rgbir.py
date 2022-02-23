@@ -3,8 +3,9 @@ dataset_type = 'AgricultureVisionDataset'
 data_root = 'data/agrivision'
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53, 123.675], std=[58.395, 57.12, 57.375, 58.395], to_rgb=True)
 crop_size = (512, 512)
+num_channels = 4
 train_pipeline = [
-    dict(type='LoadImageFromFile'),
+    dict(type='LoadImageFromFile', include_nir=True),
     dict(type='LoadAnnotations'),
     dict(type='Resize', img_scale=(1024, 256), ratio_range=(0.5, 2.0)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),

@@ -28,15 +28,14 @@ class CascadeEncoderDecoder(EncoderDecoder):
                  pretrained=None,
                  init_cfg=None):
         self.num_stages = num_stages
-        super(CascadeEncoderDecoder, self).__init__(
-            backbone=backbone,
-            decode_head=decode_head,
-            neck=neck,
-            auxiliary_head=auxiliary_head,
-            train_cfg=train_cfg,
-            test_cfg=test_cfg,
-            pretrained=pretrained,
-            init_cfg=init_cfg)
+        super(CascadeEncoderDecoder, self).__init__(backbone=backbone,
+                                                    decode_head=decode_head,
+                                                    neck=neck,
+                                                    auxiliary_head=auxiliary_head,
+                                                    train_cfg=train_cfg,
+                                                    test_cfg=test_cfg,
+                                                    pretrained=pretrained,
+                                                    init_cfg=init_cfg)
 
     def _init_decode_head(self, decode_head):
         """Initialize ``decode_head``"""
@@ -54,31 +53,34 @@ class CascadeEncoderDecoder(EncoderDecoder):
         x = self.extract_feat(img)
         out = self.decode_head[0].forward_test(x, img_metas, self.test_cfg)
         for i in range(1, self.num_stages):
-            out = self.decode_head[i].forward_test(x, out, img_metas,
-                                                   self.test_cfg)
-        out = resize(
-            input=out,
-            size=img.shape[2:],
-            mode='bilinear',
-            align_corners=self.align_corners)
+            out = self.decode_head[i].forward_test(x, out, img_metas, self.test_cfg)
+        out = resize(input=out, size=img.shape[2:], mode='bilinear', align_corners=self.align_corners)
         return out
 
-    def _decode_head_forward_train(self, x, img_metas, gt_semantic_seg):
+    def _decode_head_forward_train(self, x, img_metas, gt_semantic_seg, seg_weight=None, return_feat=False):
         """Run forward function and calculate loss for decode head in
         training."""
         losses = dict()
 
-        loss_decode = self.decode_head[0].forward_train(
-            x, img_metas, gt_semantic_seg, self.train_cfg)
+        loss_decode = self.decode_head[0].forward_train(x,
+                                                        img_metas,
+                                                        gt_semantic_seg,
+                                                        self.train_cfg,
+                                                        seg_weight=seg_weight,
+                                                        return_feat=return_feat)
 
         losses.update(add_prefix(loss_decode, 'decode_0'))
 
         for i in range(1, self.num_stages):
             # forward test again, maybe unnecessary for most methods.
-            prev_outputs = self.decode_head[i - 1].forward_test(
-                x, img_metas, self.test_cfg)
-            loss_decode = self.decode_head[i].forward_train(
-                x, prev_outputs, img_metas, gt_semantic_seg, self.train_cfg)
+            prev_outputs = self.decode_head[i - 1].forward_test(x, img_metas, self.test_cfg)
+            loss_decode = self.decode_head[i].forward_train(x,
+                                                            prev_outputs,
+                                                            img_metas,
+                                                            gt_semantic_seg,
+                                                            self.train_cfg,
+                                                            seg_weight=seg_weight,
+                                                            return_feat=return_feat)
             losses.update(add_prefix(loss_decode, f'decode_{i}'))
 
         return losses

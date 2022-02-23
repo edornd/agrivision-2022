@@ -184,6 +184,7 @@ def main():
 
     model = build_train_model(cfg, train_cfg=cfg.get('train_cfg'), test_cfg=cfg.get('test_cfg'))
     model.init_weights()
+    model.adapt_input()
 
     # SyncBN is not support for DP
     if not distributed:

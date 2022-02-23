@@ -1,5 +1,7 @@
 from copy import deepcopy
 
+import torch
+import torch.nn as nn
 from mmcv.parallel import MMDistributedDataParallel
 
 from mmseg.models.builder import build_segmentor
@@ -22,20 +24,53 @@ def get_module(module):
     return module
 
 
+def _copy_channel(layer: nn.Module, channel: int = 0) -> torch.Tensor:
+    input_weights = layer.weight
+    extra_weights = input_weights[:, channel].unsqueeze(dim=1)  # make it  [64, 1, 7, 7]
+    return torch.cat((input_weights, extra_weights), dim=1)  # obtain  [64, 4, 7, 7]
+
+
+def expand_input(model: nn.Module, input_layer: str = None, copy_channel: int = 0) -> nn.Module:
+    # when we know the layer name
+    if input_layer is not None:
+        model[input_layer].weight = nn.Parameter(_copy_channel(model[input_layer], channel=copy_channel))
+    else:
+        children = list(model.children())
+        input_layer = children[0]
+        while children and len(children) > 0:
+            input_layer = children[0]
+            children = list(children[0].children())
+
+        assert not list(input_layer.children()), f"layer '{input_layer}' still has children!"
+        input_layer.weight = nn.Parameter(_copy_channel(input_layer, channel=copy_channel))
+
+    return model
+
+
 class SegmentorWrapper(BaseSegmentor):
 
-    def __init__(self, **cfg):
+    def __init__(self, model_config: dict, max_iters: int, resume_iters: int, num_channels: int = 3, **kwargs):
         super(BaseSegmentor, self).__init__()
-        self.model = build_segmentor(deepcopy(cfg['model']))
-        self.train_cfg = cfg['model']['train_cfg']
-        self.test_cfg = cfg['model']['test_cfg']
-        head_cfg = cfg['model']['decode_head']
+        self.max_iters = max_iters
+        self.local_iter = resume_iters
+        self.num_channels = num_channels
+        self.model = build_segmentor(deepcopy(model_config))
+        self.train_cfg = model_config['train_cfg']
+        self.test_cfg = model_config['test_cfg']
+        head_cfg = model_config['decode_head']
         if isinstance(head_cfg, list):
             head_cfg = head_cfg[0]
         self.num_classes = head_cfg['num_classes']
 
     def get_model(self):
         return get_module(self.model)
+
+    def adapt_input(self):
+        """Called by train.py before the training loop.
+        Scales the input to the expected size (adds the NIR weights copying from red)
+        """
+        if self.num_channels > 3:
+            self.model = expand_input(self.model, copy_channel=0)
 
     def extract_feat(self, img):
         """Extract features from images."""
