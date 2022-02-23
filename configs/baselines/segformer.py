@@ -33,4 +33,6 @@ lr_config = dict(_delete_=True,
                  min_lr=0.0,
                  by_epoch=False)
 
-data = dict(samples_per_gpu=3, workers_per_gpu=2)
+data = dict(samples_per_gpu=2, workers_per_gpu=2)
+checkpoint_config = dict(by_epoch=False, interval=10_000, max_keep_ckpts=4)
+evaluation = dict(interval=2000, metric='mIoU', pre_eval=True)
