@@ -19,7 +19,7 @@ model = dict(
                      channels=512,
                      dilations=(1, 12, 24, 36),
                      dropout_ratio=0.1,
-                     num_classes=19,
+                     num_classes=9,
                      norm_cfg=norm_cfg,
                      align_corners=False,
                      loss_decode=dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0)),

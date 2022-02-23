@@ -11,6 +11,12 @@ pip install mmcv-full==1.4.5
 
 ## Training
 
+### Single GPU
 ```bash
- CUDA_VISIBLE_DEVICES=[DEVICES] source tools/dist_train.sh [CONFIG_FILE] [NUM_GPUS] [OPTIONS]
+ CUDA_VISIBLE_DEVICES=$DEVICES tools/train.py [CONFIG_FILE] [OPTIONS]
+```
+
+### Multi GPU
+```bash
+ CUDA_VISIBLE_DEVICES=$DEVICES source tools/dist_train.sh [CONFIG_FILE] [NUM_GPUS] [OPTIONS]
 ```

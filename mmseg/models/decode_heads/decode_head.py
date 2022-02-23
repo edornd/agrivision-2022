@@ -62,15 +62,12 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
                  act_cfg=dict(type='ReLU'),
                  in_index=-1,
                  input_transform=None,
-                 loss_decode=dict(
-                     type='CrossEntropyLoss',
-                     use_sigmoid=False,
-                     loss_weight=1.0),
+                 loss_decode=dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
                  ignore_index=255,
                  sampler=None,
                  align_corners=False,
-                 init_cfg=dict(
-                     type='Normal', std=0.01, override=dict(name='conv_seg'))):
+                 decoder_params=None,
+                 init_cfg=dict(type='Normal', std=0.01, override=dict(name='conv_seg'))):
         super(BaseDecodeHead, self).__init__(init_cfg)
         self._init_inputs(in_channels, in_index, input_transform)
         self.channels = channels
@@ -164,11 +161,8 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
         if self.input_transform == 'resize_concat':
             inputs = [inputs[i] for i in self.in_index]
             upsampled_inputs = [
-                resize(
-                    input=x,
-                    size=inputs[0].shape[2:],
-                    mode='bilinear',
-                    align_corners=self.align_corners) for x in inputs
+                resize(input=x, size=inputs[0].shape[2:], mode='bilinear', align_corners=self.align_corners)
+                for x in inputs
             ]
             inputs = torch.cat(upsampled_inputs, dim=1)
         elif self.input_transform == 'multiple_select':
@@ -180,11 +174,11 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
 
     @auto_fp16()
     @abstractmethod
-    def forward(self, inputs):
+    def forward(self, inputs, return_feat=False):
         """Placeholder of forward function."""
         pass
 
-    def forward_train(self, inputs, img_metas, gt_semantic_seg, train_cfg):
+    def forward_train(self, inputs, img_metas, gt_semantic_seg, train_cfg, seg_weight=None, return_feat=False):
         """Forward function for training.
         Args:
             inputs (list[Tensor]): List of multi-level img features.
@@ -200,8 +194,8 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
-        seg_logits = self.forward(inputs)
-        losses = self.losses(seg_logits, gt_semantic_seg)
+        seg_logits = self.forward(inputs, return_feat=return_feat)
+        losses = self.losses(seg_logits, gt_semantic_seg, seg_weight)
         return losses
 
     def forward_test(self, inputs, img_metas, test_cfg):
@@ -229,18 +223,10 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
         return output
 
     @force_fp32(apply_to=('seg_logit', ))
-    def losses(self, seg_logit, seg_label):
+    def losses(self, seg_logit, seg_label, seg_weight=None):
         """Compute segmentation loss."""
         loss = dict()
-        seg_logit = resize(
-            input=seg_logit,
-            size=seg_label.shape[2:],
-            mode='bilinear',
-            align_corners=self.align_corners)
-        if self.sampler is not None:
-            seg_weight = self.sampler.sample(seg_logit, seg_label)
-        else:
-            seg_weight = None
+        seg_logit = resize(input=seg_logit, size=seg_label.shape[2:], mode='bilinear', align_corners=self.align_corners)
         seg_label = seg_label.squeeze(1)
 
         if not isinstance(self.loss_decode, nn.ModuleList):
@@ -249,18 +235,15 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
             losses_decode = self.loss_decode
         for loss_decode in losses_decode:
             if loss_decode.loss_name not in loss:
-                loss[loss_decode.loss_name] = loss_decode(
-                    seg_logit,
-                    seg_label,
-                    weight=seg_weight,
-                    ignore_index=self.ignore_index)
+                loss[loss_decode.loss_name] = loss_decode(seg_logit,
+                                                          seg_label,
+                                                          weight=seg_weight,
+                                                          ignore_index=self.ignore_index)
             else:
-                loss[loss_decode.loss_name] += loss_decode(
-                    seg_logit,
-                    seg_label,
-                    weight=seg_weight,
-                    ignore_index=self.ignore_index)
+                loss[loss_decode.loss_name] += loss_decode(seg_logit,
+                                                           seg_label,
+                                                           weight=seg_weight,
+                                                           ignore_index=self.ignore_index)
 
-        loss['acc_seg'] = accuracy(
-            seg_logit, seg_label, ignore_index=self.ignore_index)
+        loss['acc_seg'] = accuracy(seg_logit, seg_label, ignore_index=self.ignore_index)
         return loss

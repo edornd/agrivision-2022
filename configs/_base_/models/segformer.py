@@ -2,7 +2,7 @@
 # Modifications: BN instead of SyncBN
 
 # model settings
-norm_cfg = dict(type='BN', requires_grad=True)
+norm_cfg = dict(type='SyncBN', requires_grad=True)
 find_unused_parameters = True
 model = dict(
     type='EncoderDecoder',
@@ -13,7 +13,7 @@ model = dict(
                      in_index=[0, 1, 2, 3],
                      channels=128,
                      dropout_ratio=0.1,
-                     num_classes=7,
+                     num_classes=9,
                      norm_cfg=norm_cfg,
                      align_corners=False,
                      decoder_params=dict(),

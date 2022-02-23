@@ -1,0 +1,6 @@
+HRNet
+segformer (RGB)
+segformer (RGB) + aug
+
+
+quali aug (ablation)

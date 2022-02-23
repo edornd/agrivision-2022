@@ -1,11 +1,11 @@
 # dataset settings
 dataset_type = 'AgricultureVisionDataset'
 data_root = 'data/agrivision'
-img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
+img_norm_cfg = dict(mean=[123.675, 116.28, 103.53, 123.675], std=[58.395, 57.12, 57.375, 58.395], to_rgb=True)
 crop_size = (512, 512)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations', reduce_zero_label=True),
+    dict(type='LoadAnnotations'),
     dict(type='Resize', img_scale=(2048, 512), ratio_range=(0.5, 2.0)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),
@@ -34,16 +34,19 @@ data = dict(samples_per_gpu=4,
             workers_per_gpu=4,
             train=dict(type=dataset_type,
                        data_root=data_root,
-                       img_dir='train/images',
+                       img_dir='train/images/rgb',
+                       nir_dir='train/images/nir',
                        ann_dir='train/gt',
                        pipeline=train_pipeline),
             val=dict(type=dataset_type,
                      data_root=data_root,
-                     img_dir='valid/images',
+                     img_dir='valid/images/rgb',
+                     nir_dir='valid/images/nir',
                      ann_dir='valid/gt',
                      pipeline=test_pipeline),
             test=dict(type=dataset_type,
                       data_root=data_root,
-                      img_dir='valid/images',
+                      img_dir='valid/images/rgb',
+                      nir_dir='train/images/nir',
                       ann_dir='valid/gt',
                       pipeline=test_pipeline))

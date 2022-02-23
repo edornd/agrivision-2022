@@ -31,10 +31,12 @@ class LoadImageFromFile(object):
 
     def __init__(self,
                  to_float32=False,
+                 include_nir=False,
                  color_type='color',
                  file_client_args=dict(backend='disk'),
                  imdecode_backend='cv2'):
         self.to_float32 = to_float32
+        self.include_nir = include_nir
         self.color_type = color_type
         self.file_client_args = file_client_args.copy()
         self.file_client = None
@@ -54,19 +56,23 @@ class LoadImageFromFile(object):
             self.file_client = mmcv.FileClient(**self.file_client_args)
 
         if results.get('img_prefix') is not None:
-            filenames = osp.join(results['img_prefix'], results['img_info']['filename'])
+            rgb_filename = osp.join(results['img_prefix'], results['img_info']['filename'])
+            nir_filename = osp.join(results['nir_prefix'], results['nir_info']['filename'])
         else:
-            filenames = results['img_info']['filename']
-        rgb_file, nir_file = filenames
-        rgb_bytes = self.file_client.get(rgb_file)
-        nir_bytes = self.file_client.get(nir_file)
+            rgb_filename = results['img_info']['filename']
+            nir_filename = results['nir_info']['filename']
+        rgb_bytes = self.file_client.get(rgb_filename)
         rgb = mmcv.imfrombytes(rgb_bytes, flag=self.color_type, backend=self.imdecode_backend)
-        nir = mmcv.imfrombytes(nir_bytes, flag="grayscale", backend=self.imdecode_backend)
-        img = np.concatenate((rgb, nir), dim=-1)
+        if self.include_nir:
+            nir_bytes = self.file_client.get(nir_filename)
+            nir = mmcv.imfrombytes(nir_bytes, flag="grayscale", backend=self.imdecode_backend)
+            img = np.concatenate((rgb, nir[..., np.newaxis]), axis=-1)
+        else:
+            img = rgb
         if self.to_float32:
             img = img.astype(np.float32)
 
-        results['filename'] = filenames
+        results['filename'] = rgb_filename
         results['ori_filename'] = results['img_info']['filename']
         results['img'] = img
         results['img_shape'] = img.shape

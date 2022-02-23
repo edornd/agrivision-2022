@@ -1,9 +1,11 @@
 _base_ = [
     '_base_/default_runtime.py',
     # Network Architecture
-    '_base_/models/deeplabv3_r50-d8.py',
+    '_base_/models/segformer_mit-b5.py',
     # Dataset
     '_base_/datasets/agrivision.py',
+    # Customization
+    '_base_/custom/base.py',
     # Training schedule
     '_base_/schedules/schedule_80k.py'
 ]
@@ -31,4 +33,4 @@ lr_config = dict(_delete_=True,
                  min_lr=0.0,
                  by_epoch=False)
 
-data = dict(samples_per_gpu=2, workers_per_gpu=2)
+data = dict(samples_per_gpu=1, workers_per_gpu=2)

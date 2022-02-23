@@ -21,7 +21,7 @@ from .ocr_head import OCRHead
 from .point_head import PointHead
 from .psa_head import PSAHead
 from .psp_head import PSPHead
-from .segformer_head import SegformerHead
+from .segformer_head import SegformerHead as NewSegformerHead
 from .segmenter_mask_head import SegmenterMaskTransformerHead
 from .sep_aspp_head import DepthwiseSeparableASPPHead
 from .sep_fcn_head import DepthwiseSeparableFCNHead
@@ -34,5 +34,5 @@ __all__ = [
     'FCNHead', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead', 'UPerHead', 'DepthwiseSeparableASPPHead',
     'ANNHead', 'DAHead', 'OCRHead', 'EncHead', 'DepthwiseSeparableFCNHead', 'FPNHead', 'EMAHead', 'DNLHead',
     'PointHead', 'APCHead', 'DMHead', 'LRASPPHead', 'SETRUPHead', 'SETRMLAHead', 'DPTHead', 'SETRMLAHead',
-    'SegmenterMaskTransformerHead', 'SegformerHead', 'SegFormerHead', 'ISAHead', 'STDCHead', 'DAFormerHead'
+    'SegmenterMaskTransformerHead', 'NewSegformerHead', 'SegFormerHead', 'ISAHead', 'STDCHead', 'DAFormerHead'
 ]
