@@ -7,6 +7,7 @@ Repository for CVPRW 2022
 ```bash
 pip install -r requirements.txt -f https://download.pytorch.org/whl/torch_stable.html
 pip install mmcv-full==1.4.5
+pip install -e .
 ```
 
 ## Training
@@ -19,4 +20,9 @@ pip install mmcv-full==1.4.5
 ### Multi GPU
 ```bash
  CUDA_VISIBLE_DEVICES=$DEVICES source tools/dist_train.sh [CONFIG_FILE] [NUM_GPUS] [OPTIONS]
+```
+
+## Testing
+```bash
+ CUDA_VISIBLE_DEVICES=$DEVICES python tools/test.py [CONFIG] [CHECKPOINT] --eval mIoU
 ```
