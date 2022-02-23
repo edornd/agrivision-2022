@@ -12,12 +12,18 @@ class BaseCascadeDecodeHead(BaseDecodeHead, metaclass=ABCMeta):
         super(BaseCascadeDecodeHead, self).__init__(*args, **kwargs)
 
     @abstractmethod
-    def forward(self, inputs, prev_output):
+    def forward(self, inputs, prev_output, return_feat=False):
         """Placeholder of forward function."""
         pass
 
-    def forward_train(self, inputs, prev_output, img_metas, gt_semantic_seg,
-                      train_cfg):
+    def forward_train(self,
+                      inputs,
+                      prev_output,
+                      img_metas,
+                      gt_semantic_seg,
+                      train_cfg,
+                      seg_weight=None,
+                      return_feat=False):
         """Forward function for training.
         Args:
             inputs (list[Tensor]): List of multi-level img features.
@@ -34,8 +40,8 @@ class BaseCascadeDecodeHead(BaseDecodeHead, metaclass=ABCMeta):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
-        seg_logits = self.forward(inputs, prev_output)
-        losses = self.losses(seg_logits, gt_semantic_seg)
+        seg_logits = self.forward(inputs, prev_output, return_feat=return_feat)
+        losses = self.losses(seg_logits, gt_semantic_seg, seg_weight=seg_weight)
 
         return losses
 

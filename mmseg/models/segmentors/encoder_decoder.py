@@ -141,7 +141,7 @@ class EncoderDecoder(BaseSegmentor):
         loss_decode = self._decode_head_forward_train(x,
                                                       img_metas,
                                                       gt_semantic_seg,
-                                                      seg_weight,
+                                                      seg_weight=seg_weight,
                                                       return_feat=return_feat)
         losses.update(loss_decode)
 

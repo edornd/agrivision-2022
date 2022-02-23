@@ -40,41 +40,37 @@ class SpatialGatherModule(nn.Module):
 class ObjectAttentionBlock(_SelfAttentionBlock):
     """Make a OCR used SelfAttentionBlock."""
 
-    def __init__(self, in_channels, channels, scale, conv_cfg, norm_cfg,
-                 act_cfg):
+    def __init__(self, in_channels, channels, scale, conv_cfg, norm_cfg, act_cfg):
         if scale > 1:
             query_downsample = nn.MaxPool2d(kernel_size=scale)
         else:
             query_downsample = None
-        super(ObjectAttentionBlock, self).__init__(
-            key_in_channels=in_channels,
-            query_in_channels=in_channels,
-            channels=channels,
-            out_channels=in_channels,
-            share_key_query=False,
-            query_downsample=query_downsample,
-            key_downsample=None,
-            key_query_num_convs=2,
-            key_query_norm=True,
-            value_out_num_convs=1,
-            value_out_norm=True,
-            matmul_norm=True,
-            with_out=True,
-            conv_cfg=conv_cfg,
-            norm_cfg=norm_cfg,
-            act_cfg=act_cfg)
-        self.bottleneck = ConvModule(
-            in_channels * 2,
-            in_channels,
-            1,
-            conv_cfg=self.conv_cfg,
-            norm_cfg=self.norm_cfg,
-            act_cfg=self.act_cfg)
+        super(ObjectAttentionBlock, self).__init__(key_in_channels=in_channels,
+                                                   query_in_channels=in_channels,
+                                                   channels=channels,
+                                                   out_channels=in_channels,
+                                                   share_key_query=False,
+                                                   query_downsample=query_downsample,
+                                                   key_downsample=None,
+                                                   key_query_num_convs=2,
+                                                   key_query_norm=True,
+                                                   value_out_num_convs=1,
+                                                   value_out_norm=True,
+                                                   matmul_norm=True,
+                                                   with_out=True,
+                                                   conv_cfg=conv_cfg,
+                                                   norm_cfg=norm_cfg,
+                                                   act_cfg=act_cfg)
+        self.bottleneck = ConvModule(in_channels * 2,
+                                     in_channels,
+                                     1,
+                                     conv_cfg=self.conv_cfg,
+                                     norm_cfg=self.norm_cfg,
+                                     act_cfg=self.act_cfg)
 
     def forward(self, query_feats, key_feats):
         """Forward function."""
-        context = super(ObjectAttentionBlock,
-                        self).forward(query_feats, key_feats)
+        context = super(ObjectAttentionBlock, self).forward(query_feats, key_feats)
         output = self.bottleneck(torch.cat([context, query_feats], dim=1))
         if self.query_downsample is not None:
             output = resize(query_feats)
@@ -99,25 +95,23 @@ class OCRHead(BaseCascadeDecodeHead):
         super(OCRHead, self).__init__(**kwargs)
         self.ocr_channels = ocr_channels
         self.scale = scale
-        self.object_context_block = ObjectAttentionBlock(
-            self.channels,
-            self.ocr_channels,
-            self.scale,
-            conv_cfg=self.conv_cfg,
-            norm_cfg=self.norm_cfg,
-            act_cfg=self.act_cfg)
+        self.object_context_block = ObjectAttentionBlock(self.channels,
+                                                         self.ocr_channels,
+                                                         self.scale,
+                                                         conv_cfg=self.conv_cfg,
+                                                         norm_cfg=self.norm_cfg,
+                                                         act_cfg=self.act_cfg)
         self.spatial_gather_module = SpatialGatherModule(self.scale)
 
-        self.bottleneck = ConvModule(
-            self.in_channels,
-            self.channels,
-            3,
-            padding=1,
-            conv_cfg=self.conv_cfg,
-            norm_cfg=self.norm_cfg,
-            act_cfg=self.act_cfg)
+        self.bottleneck = ConvModule(self.in_channels,
+                                     self.channels,
+                                     3,
+                                     padding=1,
+                                     conv_cfg=self.conv_cfg,
+                                     norm_cfg=self.norm_cfg,
+                                     act_cfg=self.act_cfg)
 
-    def forward(self, inputs, prev_output):
+    def forward(self, inputs, prev_output, return_feat=False):
         """Forward function."""
         x = self._transform_inputs(inputs)
         feats = self.bottleneck(x)

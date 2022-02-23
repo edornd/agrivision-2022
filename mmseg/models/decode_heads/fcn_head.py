@@ -21,12 +21,7 @@ class FCNHead(BaseDecodeHead):
         dilation (int): The dilation rate for convs in the head. Default: 1.
     """
 
-    def __init__(self,
-                 num_convs=2,
-                 kernel_size=3,
-                 concat_input=True,
-                 dilation=1,
-                 **kwargs):
+    def __init__(self, num_convs=2, kernel_size=3, concat_input=True, dilation=1, **kwargs):
         assert num_convs >= 0 and dilation > 0 and isinstance(dilation, int)
         self.num_convs = num_convs
         self.concat_input = concat_input
@@ -38,41 +33,38 @@ class FCNHead(BaseDecodeHead):
         conv_padding = (kernel_size // 2) * dilation
         convs = []
         convs.append(
-            ConvModule(
-                self.in_channels,
-                self.channels,
-                kernel_size=kernel_size,
-                padding=conv_padding,
-                dilation=dilation,
-                conv_cfg=self.conv_cfg,
-                norm_cfg=self.norm_cfg,
-                act_cfg=self.act_cfg))
+            ConvModule(self.in_channels,
+                       self.channels,
+                       kernel_size=kernel_size,
+                       padding=conv_padding,
+                       dilation=dilation,
+                       conv_cfg=self.conv_cfg,
+                       norm_cfg=self.norm_cfg,
+                       act_cfg=self.act_cfg))
         for i in range(num_convs - 1):
             convs.append(
-                ConvModule(
-                    self.channels,
-                    self.channels,
-                    kernel_size=kernel_size,
-                    padding=conv_padding,
-                    dilation=dilation,
-                    conv_cfg=self.conv_cfg,
-                    norm_cfg=self.norm_cfg,
-                    act_cfg=self.act_cfg))
+                ConvModule(self.channels,
+                           self.channels,
+                           kernel_size=kernel_size,
+                           padding=conv_padding,
+                           dilation=dilation,
+                           conv_cfg=self.conv_cfg,
+                           norm_cfg=self.norm_cfg,
+                           act_cfg=self.act_cfg))
         if num_convs == 0:
             self.convs = nn.Identity()
         else:
             self.convs = nn.Sequential(*convs)
         if self.concat_input:
-            self.conv_cat = ConvModule(
-                self.in_channels + self.channels,
-                self.channels,
-                kernel_size=kernel_size,
-                padding=kernel_size // 2,
-                conv_cfg=self.conv_cfg,
-                norm_cfg=self.norm_cfg,
-                act_cfg=self.act_cfg)
+            self.conv_cat = ConvModule(self.in_channels + self.channels,
+                                       self.channels,
+                                       kernel_size=kernel_size,
+                                       padding=kernel_size // 2,
+                                       conv_cfg=self.conv_cfg,
+                                       norm_cfg=self.norm_cfg,
+                                       act_cfg=self.act_cfg)
 
-    def forward(self, inputs):
+    def forward(self, inputs, return_feat=False):
         """Forward function."""
         x = self._transform_inputs(inputs)
         output = self.convs(x)
