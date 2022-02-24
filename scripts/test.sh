@@ -14,7 +14,7 @@ else
 fi
 
 CWD=$PWD
-CONFIG_FILE=$(find ${TEST_ROOT} -type f -name "*${TEST_ROOT: -1}.json")
+CONFIG_FILE=$(find ${TEST_ROOT} -type f -name "*.py")
 CHECKPOINT_FILE="${TEST_ROOT}/${CHECKPOINT_NAME}.pth"
 OUT_DIR="${TEST_ROOT}/preds/"
 
@@ -26,10 +26,9 @@ echo 'Predictions Output Directory:' $OUT_DIR
 echo ''
 
 if [[ "${TARGET}" == "eval" ]]; then
-    CUDA_VISIBLE_DEVICES=${CUDA} python -m tools.test ${CONFIG_FILE} ${CHECKPOINT_FILE} \
-        --out-dir ${OUT_DIR} --eval mIoU
+    CUDA_VISIBLE_DEVICES=${CUDA} python tools/test.py ${CONFIG_FILE} ${CHECKPOINT_FILE} --eval mIoU
 elif [[ "${TARGET}" == "format" ]]; then
-    CUDA_VISIBLE_DEVICES=${CUDA} python -m tools.test ${CONFIG_FILE} ${CHECKPOINT_FILE} \
+    CUDA_VISIBLE_DEVICES=${CUDA} python tools/test.py ${CONFIG_FILE} ${CHECKPOINT_FILE} \
         --out-dir ${OUT_DIR} --format-only
     echo "Zipping images..."
     cd ${OUT_DIR} && zip -r ${CHECKPOINT_NAME}.zip *.png
