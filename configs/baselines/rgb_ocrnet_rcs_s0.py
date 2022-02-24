@@ -37,5 +37,5 @@ data = dict(samples_per_gpu=2,
             workers_per_gpu=2,
             train=dict(rare_class_sampling=dict(min_pixels=3000, class_temp=0.01, min_crop_ratio=0.5)))
 # schedule override
-checkpoint_config = dict(by_epoch=False, interval=10_000, max_keep_ckpts=4)
-evaluation = dict(interval=2000, metric='mIoU', pre_eval=True)
+checkpoint_config = dict(by_epoch=False, interval=10_000)
+evaluation = dict(interval=10_000, metric='mIoU', pre_eval=True)

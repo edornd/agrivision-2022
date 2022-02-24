@@ -1,7 +1,7 @@
 _base_ = [
     '../_base_/default_runtime.py',
     # Network Architecture
-    '../_base_/models/fcn_hr18.py',
+    '../_base_/models/fcn_r50-d8.py',
     # Dataset
     '../_base_/datasets/agrivision_rgb.py',
     # Customization
