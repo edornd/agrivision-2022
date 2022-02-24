@@ -200,7 +200,8 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
             seg_logits, features = seg_logits
         # add the (possible) tensor to the output dictionary
         losses = self.losses(seg_logits, gt_semantic_seg, seg_weight)
-        losses["features"] = features
+        if return_feat:
+            losses["features"] = features
         return losses
 
     def forward_test(self, inputs, img_metas, test_cfg):

@@ -62,7 +62,8 @@ class CustomModel(SegmentorWrapper):
                                    device=device,
                                    batch_size=batch_size,
                                    num_channels=self.num_channels)
-        self.aug_transform.set_stats(means, stds)
+        if self.aug_transform is not None:
+            self.aug_transform.set_stats(means, stds)
 
         # INVARIANCE TRANSFORM - source, step 1
         # # compute x and T(x), then concatenate in a single batch
