@@ -72,7 +72,7 @@ class DepthwiseSeparableASPPHead(ASPPHead):
                                          norm_cfg=self.norm_cfg,
                                          act_cfg=self.act_cfg))
 
-    def forward(self, inputs):
+    def forward(self, inputs, return_feat=False):
         """Forward function."""
         x = self._transform_inputs(inputs)
         aspp_outs = [resize(self.image_pool(x), size=x.size()[2:], mode='bilinear', align_corners=self.align_corners)]
