@@ -36,3 +36,4 @@ lr_config = dict(_delete_=True,
 data = dict(samples_per_gpu=1,
             workers_per_gpu=2,
             train=dict(rare_class_sampling=dict(min_pixels=3000, class_temp=0.01, min_crop_ratio=0.5)))
+custom = dict(aug=dict(debug_interval=10))
