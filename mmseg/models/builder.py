@@ -49,6 +49,7 @@ def build_train_model(cfg, train_cfg=None, test_cfg=None):
         cfg.custom['max_iters'] = cfg.runner.max_iters
         cfg.custom['resume_iters'] = getattr(cfg, "resume_iters", 0)
         cfg.custom["num_channels"] = cfg.num_channels
+        cfg.custom["work_dir"] = cfg.work_dir
         return SEGMENTORS.build(cfg.custom, default_args=dict(train_cfg=train_cfg, test_cfg=test_cfg))
     else:
         return SEGMENTORS.build(cfg.model, default_args=dict(train_cfg=train_cfg, test_cfg=test_cfg))

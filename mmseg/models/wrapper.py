@@ -25,12 +25,33 @@ def get_module(module):
 
 
 def _copy_channel(layer: nn.Module, channel: int = 0) -> torch.Tensor:
+    """Extracts weights from the given layer, it extracts the weights at channel `channel`,
+    and it attaches it at the end.
+
+    Args:
+        layer (nn.Module): torch layer with weight params
+        channel (int, optional): index of the channel to duplicate. Defaults to 0.
+
+    Returns:
+        torch.Tensor: layer weights, expanded
+    """
     input_weights = layer.weight
     extra_weights = input_weights[:, channel].unsqueeze(dim=1)  # make it  [64, 1, 7, 7]
     return torch.cat((input_weights, extra_weights), dim=1)  # obtain  [64, 4, 7, 7]
 
 
 def expand_input(model: nn.Module, input_layer: str = None, copy_channel: int = 0) -> nn.Module:
+    """Recursively iterates the the layers of the model, until the input layer is retrieved.
+    Last, it expands the layer weights to accomodate for extra channels.
+
+    Args:
+        model (nn.Module): torch model
+        input_layer (str, optional): name of input, if known a priori. Defaults to None.
+        copy_channel (int, optional): which channel to copy. Defaults to 0.
+
+    Returns:
+        nn.Module: the same model, whose input has been extended
+    """
     # when we know the layer name
     if input_layer is not None:
         model[input_layer].weight = nn.Parameter(_copy_channel(model[input_layer], channel=copy_channel))
@@ -49,11 +70,13 @@ def expand_input(model: nn.Module, input_layer: str = None, copy_channel: int = 
 
 class SegmentorWrapper(BaseSegmentor):
 
-    def __init__(self, model_config: dict, max_iters: int, resume_iters: int, num_channels: int = 3, **kwargs):
+    def __init__(self, model_config: dict, max_iters: int, resume_iters: int, num_channels: int, work_dir: str,
+                 **kwargs):
         super(BaseSegmentor, self).__init__()
         self.max_iters = max_iters
         self.local_iter = resume_iters
         self.num_channels = num_channels
+        self.work_dir = work_dir
         self.model = build_segmentor(deepcopy(model_config))
         self.train_cfg = model_config['train_cfg']
         self.test_cfg = model_config['test_cfg']
@@ -81,7 +104,7 @@ class SegmentorWrapper(BaseSegmentor):
         map of the same size as input."""
         return self.get_model().encode_decode(img, img_metas)
 
-    def forward_train(self, img, img_metas, gt_semantic_seg, return_feat=False):
+    def forward_train(self, img, img_metas, gt_semantic_seg, seg_weight=None, return_feat=False):
         """Forward function for training.
 
         Args:
@@ -97,7 +120,11 @@ class SegmentorWrapper(BaseSegmentor):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
-        losses = self.get_model().forward_train(img, img_metas, gt_semantic_seg, return_feat=return_feat)
+        losses = self.get_model().forward_train(img,
+                                                img_metas,
+                                                gt_semantic_seg,
+                                                seg_weight=seg_weight,
+                                                return_feat=return_feat)
         return losses
 
     def inference(self, img, img_meta, rescale):

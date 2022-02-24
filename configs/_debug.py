@@ -3,9 +3,9 @@ _base_ = [
     # Network Architecture
     '_base_/models/segformer_mit-b5.py',
     # Dataset
-    '_base_/datasets/agrivision.py',
+    '_base_/datasets/agrivision_rgbir.py',
     # Customization
-    '_base_/custom/base.py',
+    '_base_/custom/aug.py',
     # Training schedule
     '_base_/schedules/schedule_80k.py'
 ]
@@ -33,4 +33,6 @@ lr_config = dict(_delete_=True,
                  min_lr=0.0,
                  by_epoch=False)
 
-data = dict(samples_per_gpu=2, workers_per_gpu=2)
+data = dict(samples_per_gpu=1,
+            workers_per_gpu=2,
+            train=dict(rare_class_sampling=dict(min_pixels=3000, class_temp=0.01, min_crop_ratio=0.5)))

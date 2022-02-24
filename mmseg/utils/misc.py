@@ -3,6 +3,8 @@ import glob
 import os.path as osp
 import warnings
 
+import torch
+
 
 def find_latest_checkpoint(path, suffix='pth'):
     """This function is for finding the latest checkpoint.
@@ -39,3 +41,21 @@ def find_latest_checkpoint(path, suffix='pth'):
             latest = count
             latest_path = checkpoint
     return latest_path
+
+
+def get_mean_std(img_metas: list, device: torch.device, batch_size: int, num_channels: int = 3):
+    mean = [torch.as_tensor(img_metas[i]['img_norm_cfg']['mean'], device=device) for i in range(len(img_metas))]
+    mean = torch.stack(mean).view(-1, num_channels, 1, 1)
+    std = [torch.as_tensor(img_metas[i]['img_norm_cfg']['std'], device=device) for i in range(len(img_metas))]
+    std = torch.stack(std).view(-1, num_channels, 1, 1)
+    repeat_factor = batch_size // len(img_metas)
+    if repeat_factor > 1:
+        mean = mean.repeat(repeat_factor, 1, 1, 1)
+        std = std.repeat(repeat_factor, 1, 1, 1)
+    return mean, std
+
+
+def denorm(img, mean, std):
+    """denormalizes the given tensor using matrix multiplication.
+    """
+    return img.mul(std).add(mean) / 255.0
