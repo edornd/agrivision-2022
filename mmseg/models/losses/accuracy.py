@@ -48,8 +48,11 @@ def accuracy(pred, target, topk=1, thresh=None, ignore_index=None):
     res = []
     for k in topk:
         correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
-        res.append(
-            correct_k.mul_(100.0 / target[target != ignore_index].numel()))
+        total = target[target != ignore_index].numel()
+        if total > 0:
+            res.append(correct_k.mul_(100.0 / total))
+        else:
+            res.append(correct_k.mul_(0.0))
     return res[0] if return_single else res
 
 
@@ -80,5 +83,4 @@ class Accuracy(nn.Module):
         Returns:
             tuple[float]: The accuracies under different topk criterions.
         """
-        return accuracy(pred, target, self.topk, self.thresh,
-                        self.ignore_index)
+        return accuracy(pred, target, self.topk, self.thresh, self.ignore_index)

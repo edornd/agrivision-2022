@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from matplotlib import pyplot as plt
+from torch.nn import functional as fn
 
 from mmseg.models.builder import MODELS
 from mmseg.models.utils.augmentation import AugParams, RepeatableTransform
@@ -35,21 +36,34 @@ class CustomModel(SegmentorWrapper):
             mmcv.print_log(f"{k:<20s}: {str(v)}")
         # create loss module
         if self.aug_params.loss == "mse":
-            self.aug_loss = nn.MSELoss()
+            self.aug_loss = nn.MSELoss(reduction="none")
         elif self.aug_params.loss == "l1":
             self.aug_loss = nn.L1Loss()
         else:
             raise NotImplementedError(f"Unknown loss: '{self.aug.loss}'")
 
-    def compute_aug_loss(self, features: torch.Tensor, aug_params: dict, split_at: int):
+    def compute_aug_loss(self,
+                         features: torch.Tensor,
+                         mask: torch.Tensor,
+                         aug_params: dict,
+                         split_at: int,
+                         debug: bool = False):
         # first part of the batch are the original images, the last the augmented
         f_x = features[:split_at]
         f_tx = features[split_at:]
         t_fx = self.aug_transform(f_x, params=aug_params, custom_shape=f_x.shape, color_transform=False)
-        # compute the loss, smoothed out by the temperature value (decreasing to 1)
-        # temp = self.temperature.get_value()
-        loss_inv = self.aug_loss(t_fx, f_tx) * self.aug_params.factor
-        return {"decode.loss_aug": loss_inv}
+        # compute the loss for each "pixel" embedding at 12x128
+        # mask to exclude areas set to ignore_index, multiply pixelwise
+        # then reduce and multiply for a reduction factor (decreases impact on CE)
+        mse_pixelwise = self.aug_loss(t_fx, f_tx)
+        _, _, h, w = mse_pixelwise.shape
+        mask = fn.interpolate(mask, size=(h, w), mode="nearest")
+        mse_pixelwise = mse_pixelwise * mask
+        loss_inv = mse_pixelwise.mean() * self.aug_params.factor
+        result = {"decode.loss_aug": loss_inv}
+        if debug:
+            result["debug"] = (f_tx, t_fx, mask, mse_pixelwise.detach().mean(axis=1))
+        return result
 
     def forward_train(self, img: torch.Tensor, img_metas: List[dict], gt_semantic_seg: torch.Tensor):
         # mmcv.print_log(f"iter: {self.local_iter}")
@@ -57,6 +71,8 @@ class CustomModel(SegmentorWrapper):
         # mmcv.print_log(f"label shape: {gt_semantic_seg.shape}")
         batch_size = img.shape[0]
         device = img.device
+        debug_iter = self.aug_params.debug_augs and self.local_iter % self.aug_params.debug_interval == 0
+
         # prepare mean and std for the augmentations
         means, stds = get_mean_std(img_metas=img_metas,
                                    device=device,
@@ -77,16 +93,25 @@ class CustomModel(SegmentorWrapper):
         losses = super().forward_train(img, img_metas, gt_semantic_seg, seg_weight=None, return_feat=self.augment)
         if self.augment:
             features = losses.pop("decode.features")
-            losses_aug: dict = self.compute_aug_loss(features=features, aug_params=aug_params, split_at=batch_size)
+            mask = (gt_aug != 255).type(torch.uint8)
+            losses_aug: dict = self.compute_aug_loss(features=features,
+                                                     mask=mask,
+                                                     aug_params=aug_params,
+                                                     split_at=batch_size,
+                                                     debug=debug_iter)
+            debug_vars = losses_aug.pop("debug", None)
             losses.update(losses_aug)
             # debug plots when required
-            if self.aug_params.debug_augs and self.local_iter % self.aug_params.debug_interval == 0:
+            if debug_iter:
+                f_tx, t_fx, mask, mse = debug_vars
                 self._plot_aug_debug(img[:batch_size],
                                      img[batch_size:],
-                                     gt_semantic_seg[:batch_size],
-                                     gt_semantic_seg[batch_size:],
-                                     features[:batch_size],
-                                     features[batch_size:],
+                                     src_labels=gt_semantic_seg[:batch_size],
+                                     aug_labels=gt_semantic_seg[batch_size:],
+                                     src_features=t_fx,
+                                     aug_features=f_tx,
+                                     mask=mask,
+                                     loss=mse,
                                      means=means,
                                      stds=stds,
                                      batch_size=batch_size)
@@ -102,6 +127,8 @@ class CustomModel(SegmentorWrapper):
                         aug_labels: torch.Tensor,
                         src_features: torch.Tensor,
                         aug_features: torch.Tensor,
+                        mask: torch.Tensor,
+                        loss: torch.Tensor,
                         means: torch.Tensor,
                         stds: torch.Tensor,
                         batch_size: int,
@@ -115,7 +142,7 @@ class CustomModel(SegmentorWrapper):
         # iterate batch and save plots
         for i in range(batch_size):
             index = np.random.randint(0, src_features.shape[1])
-            rows, cols = 2, 3
+            rows, cols = 2, 4
             fig, axs = plt.subplots(rows,
                                     cols,
                                     figsize=(3 * cols, 3 * rows),
@@ -127,12 +154,17 @@ class CustomModel(SegmentorWrapper):
                                         'right': 1,
                                         'left': 0
                                     })
-            subplotimg(axs[0][0], vis_src_img[i, :3], 'Source image')
+            subplotimg(axs[0][0], vis_src_img[i, :3], 'Src. image')
             subplotimg(axs[1][0], vis_aug_img[i, :3], 'Aug. image')
-            subplotimg(axs[0][1], src_labels[i], 'Source Label', cmap='agrivision')
+
+            subplotimg(axs[0][1], src_labels[i], 'Src. Label', cmap='agrivision')
             subplotimg(axs[1][1], aug_labels[i], 'Aug. Label', cmap='agrivision')
-            subplotimg(axs[0][2], src_features[i, index], 'f(x)', cmap="viridis")
-            subplotimg(axs[1][2], aug_features[i, index], 'f(T(x))', cmap="viridis")
+
+            subplotimg(axs[0][2], mask[i], 'Aug. mask', cmap='gray', vmin=0, vmax=1)
+            subplotimg(axs[1][2], loss[i], 'Aug. loss', cmap="plasma")
+
+            subplotimg(axs[1][3], aug_features[i, index], 'f(T(x))', cmap="viridis")
+            subplotimg(axs[0][3], src_features[i, index], 'T(f(x))', cmap="viridis")
 
             for ax in axs.flat:
                 ax.axis('off')
