@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from matplotlib import pyplot as plt
+from torch.nn import functional as fn
 
 from mmseg.models.builder import MODELS
 from mmseg.models.utils.augmentation import AugParams, RepeatableTransform
@@ -35,20 +36,23 @@ class CustomModel(SegmentorWrapper):
             mmcv.print_log(f"{k:<20s}: {str(v)}")
         # create loss module
         if self.aug_params.loss == "mse":
-            self.aug_loss = nn.MSELoss()
+            self.aug_loss = nn.MSELoss(reduction="none")
         elif self.aug_params.loss == "l1":
             self.aug_loss = nn.L1Loss()
         else:
             raise NotImplementedError(f"Unknown loss: '{self.aug.loss}'")
 
-    def compute_aug_loss(self, features: torch.Tensor, aug_params: dict, split_at: int):
+    def compute_aug_loss(self, features: torch.Tensor, mask: torch.Tensor, aug_params: dict, split_at: int):
         # first part of the batch are the original images, the last the augmented
         f_x = features[:split_at]
         f_tx = features[split_at:]
         t_fx = self.aug_transform(f_x, params=aug_params, custom_shape=f_x.shape, color_transform=False)
         # compute the loss, smoothed out by the temperature value (decreasing to 1)
         # temp = self.temperature.get_value()
-        loss_inv = self.aug_loss(t_fx, f_tx)
+        mse_pixelwise = self.aug_loss(t_fx, f_tx)
+        _, _, h, w = mse_pixelwise.shape
+        mask = fn.interpolate(mask, size=(h, w), mode="nearest")
+        loss_inv = (mse_pixelwise * mask).mean()
         return {"decode.loss_aug": loss_inv}
 
     def forward_train(self, img: torch.Tensor, img_metas: List[dict], gt_semantic_seg: torch.Tensor):
@@ -77,7 +81,11 @@ class CustomModel(SegmentorWrapper):
         losses = super().forward_train(img, img_metas, gt_semantic_seg, seg_weight=None, return_feat=self.augment)
         if self.augment:
             features = losses.pop("decode.features")
-            losses_aug: dict = self.compute_aug_loss(features=features, aug_params=aug_params, split_at=batch_size)
+            mask = (gt_semantic_seg != 255).type(torch.uint8)
+            losses_aug: dict = self.compute_aug_loss(features=features,
+                                                     mask=mask,
+                                                     aug_params=aug_params,
+                                                     split_at=batch_size)
             losses.update(losses_aug)
             # debug plots when required
             if self.aug_params.debug_augs and self.local_iter % self.aug_params.debug_interval == 0:

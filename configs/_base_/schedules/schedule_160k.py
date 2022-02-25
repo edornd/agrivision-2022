@@ -17,9 +17,9 @@ lr_config = dict(policy='poly',
                  warmup_iters=1500,
                  warmup_ratio=1e-6,
                  power=1.0,
-                 min_lr=0.0,
+                 min_lr=1e-7,
                  by_epoch=False)
 # runtime settings
-runner = dict(type='IterBasedRunner', max_iters=160_000)
+runner = dict(type='IterBasedRunner', max_iters=80_000)
 checkpoint_config = dict(by_epoch=False, interval=10_000)
 evaluation = dict(interval=10_000, metric='mIoU', pre_eval=True)
