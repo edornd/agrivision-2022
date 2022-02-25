@@ -21,7 +21,7 @@ train_pipeline = [
     dict(type='Collect', keys=['img', 'gt_semantic_seg']),
 ]
 test_pipeline = [
-    dict(type='LoadImageFromFile'),
+    dict(type='LoadImageFromFile', include_nir=True),
     dict(
         type='MultiScaleFlipAug',
         img_scale=(512, 512),
