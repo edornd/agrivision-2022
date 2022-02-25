@@ -30,7 +30,7 @@ model = dict(
                         num_convs=1,
                         concat_input=False,
                         dropout_ratio=0.1,
-                        num_classes=19,
+                        num_classes=9,
                         norm_cfg=norm_cfg,
                         align_corners=False,
                         loss_decode=dict(type='CrossEntropyLoss', use_sigmoid=False, loss_weight=0.4)),
