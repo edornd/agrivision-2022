@@ -3,7 +3,7 @@ _base_ = [
     # Network Architecture
     '../_base_/models/pspnet_r50-d8.py',
     # Dataset
-    '../_base_/datasets/agrivision_rgb.py',
+    '../_base_/datasets/agrivision_rgbir.py',
     # Customization
     '../_base_/custom/base.py',
     # Training schedule
