@@ -47,6 +47,7 @@ class CustomModel(SegmentorWrapper):
                          mask: torch.Tensor,
                          aug_params: dict,
                          split_at: int,
+                         prefix: str = "",
                          debug: bool = False):
         # first part of the batch are the original images, the last the augmented
         f_x = features[:split_at]
@@ -60,7 +61,7 @@ class CustomModel(SegmentorWrapper):
         mask = fn.interpolate(mask, size=(h, w), mode="nearest")
         mse_pixelwise = mse_pixelwise * mask
         loss_inv = mse_pixelwise.mean() * self.aug_params.factor
-        result = {"decode.loss_aug": loss_inv}
+        result = {f"{prefix}.loss_aug": loss_inv}
         if debug:
             result["debug"] = (f_tx, t_fx, mask, mse_pixelwise.detach().mean(axis=1))
         return result
@@ -92,30 +93,40 @@ class CustomModel(SegmentorWrapper):
         # Forward on the (possibly augmented) batch with standard segmentation
         losses = super().forward_train(img, img_metas, gt_semantic_seg, seg_weight=None, return_feat=self.augment)
         if self.augment:
-            features = losses.pop("decode.features")
-            mask = (gt_aug != 255).type(torch.uint8)
-            losses_aug: dict = self.compute_aug_loss(features=features,
-                                                     mask=mask,
-                                                     aug_params=aug_params,
-                                                     split_at=batch_size,
-                                                     debug=debug_iter)
-            debug_vars = losses_aug.pop("debug", None)
-            losses.update(losses_aug)
-            # debug plots when required
-            if debug_iter:
-                f_tx, t_fx, mask, mse = debug_vars
-                self._plot_aug_debug(img[:batch_size],
-                                     img[batch_size:],
-                                     src_labels=gt_semantic_seg[:batch_size],
-                                     aug_labels=gt_semantic_seg[batch_size:],
-                                     src_features=t_fx,
-                                     aug_features=f_tx,
-                                     mask=mask,
-                                     loss=mse,
-                                     means=means,
-                                     stds=stds,
-                                     batch_size=batch_size)
+            # create empty dict to temporarily store aug outs
+            aug_losses = dict()
+            for key, features in losses.items():
+                if not key.endswith("features"):
+                    continue
+                prefix, _ = key.split(".")
+                mask = (gt_aug != 255).type(torch.uint8)
+                aug_out: dict = self.compute_aug_loss(features=features,
+                                                      mask=mask,
+                                                      aug_params=aug_params,
+                                                      split_at=batch_size,
+                                                      prefix=prefix,
+                                                      debug=debug_iter)
+                # remove debug stuff from the dict and update the group dict
+                debug_vars = aug_out.pop("debug", None)
+                aug_losses.update(aug_out)
+                # debug plots at each interval, only if required
+                if debug_iter:
+                    f_tx, t_fx, mask, mse = debug_vars
+                    self._plot_aug_debug(img[:batch_size],
+                                         img[batch_size:],
+                                         src_labels=gt_semantic_seg[:batch_size],
+                                         aug_labels=gt_semantic_seg[batch_size:],
+                                         src_features=t_fx,
+                                         aug_features=f_tx,
+                                         mask=mask,
+                                         loss=mse,
+                                         means=means,
+                                         stds=stds,
+                                         batch_size=batch_size,
+                                         prefix=prefix)
 
+        # update the global dictionary of losses with the list of augmentation losses
+        losses.update(aug_losses)
         # increment iteration
         self.local_iter += 1
         return losses

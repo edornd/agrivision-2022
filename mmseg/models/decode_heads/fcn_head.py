@@ -70,5 +70,8 @@ class FCNHead(BaseDecodeHead):
         output = self.convs(x)
         if self.concat_input:
             output = self.conv_cat(torch.cat([x, output], dim=1))
-        output = self.cls_seg(output)
+        features = output
+        output = self.cls_seg(features)
+        if return_feat:
+            return output, features
         return output

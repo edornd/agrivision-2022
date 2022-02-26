@@ -40,9 +40,13 @@ class BaseCascadeDecodeHead(BaseDecodeHead, metaclass=ABCMeta):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
+        features = None
         seg_logits = self.forward(inputs, prev_output, return_feat=return_feat)
+        if return_feat:
+            seg_logits, features = seg_logits
         losses = self.losses(seg_logits, gt_semantic_seg, seg_weight=seg_weight)
-
+        if return_feat:
+            losses["features"] = features
         return losses
 
     def forward_test(self, inputs, prev_output, img_metas, test_cfg):

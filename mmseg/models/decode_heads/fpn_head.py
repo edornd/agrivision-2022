@@ -53,6 +53,8 @@ class FPNHead(BaseDecodeHead):
             # non inplace
             output = output + resize(
                 self.scale_heads[i](x[i]), size=output.shape[2:], mode='bilinear', align_corners=self.align_corners)
-
-        output = self.cls_seg(output)
+        features = output
+        output = self.cls_seg(features)
+        if return_feat:
+            return output, features
         return output

@@ -11,6 +11,7 @@ _base_ = [
 ]
 # Random Seed
 seed = 0
+group = "aug"
 
 # optimizer
 optimizer = dict(_delete_=True,
@@ -30,6 +31,6 @@ lr_config = dict(_delete_=True,
                  warmup_iters=1500,
                  warmup_ratio=1e-6,
                  power=1.0,
-                 min_lr=0.0,
+                 min_lr=1e-7,
                  by_epoch=False)
-data = dict(samples_per_gpu=4, workers_per_gpu=2)
+data = dict(samples_per_gpu=1, workers_per_gpu=2)

@@ -118,5 +118,6 @@ class OCRHead(BaseCascadeDecodeHead):
         context = self.spatial_gather_module(feats, prev_output)
         object_context = self.object_context_block(feats, context)
         output = self.cls_seg(object_context)
-
+        if return_feat:
+            return output, object_context
         return output

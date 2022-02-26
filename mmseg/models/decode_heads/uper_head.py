@@ -106,6 +106,8 @@ class UPerHead(BaseDecodeHead):
                                  mode='bilinear',
                                  align_corners=self.align_corners)
         fpn_outs = torch.cat(fpn_outs, dim=1)
-        output = self.fpn_bottleneck(fpn_outs)
-        output = self.cls_seg(output)
+        features = self.fpn_bottleneck(fpn_outs)
+        output = self.cls_seg(features)
+        if return_feat:
+            return output, features
         return output

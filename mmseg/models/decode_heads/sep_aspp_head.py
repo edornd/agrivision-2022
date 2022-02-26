@@ -83,6 +83,8 @@ class DepthwiseSeparableASPPHead(ASPPHead):
             c1_output = self.c1_bottleneck(inputs[0])
             output = resize(input=output, size=c1_output.shape[2:], mode='bilinear', align_corners=self.align_corners)
             output = torch.cat([output, c1_output], dim=1)
-        output = self.sep_bottleneck(output)
-        output = self.cls_seg(output)
+        features = self.sep_bottleneck(output)
+        output = self.cls_seg(features)
+        if return_feat:
+            return output, features
         return output

@@ -9,4 +9,4 @@ custom = dict(
         jitter_prob=0.4,
         jitter_strength=0.15,
         debug_augs=True,
-        debug_interval=1000))
+        debug_interval=2000))

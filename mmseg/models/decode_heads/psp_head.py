@@ -90,6 +90,8 @@ class PSPHead(BaseDecodeHead):
         psp_outs = [x]
         psp_outs.extend(self.psp_modules(x))
         psp_outs = torch.cat(psp_outs, dim=1)
-        output = self.bottleneck(psp_outs)
-        output = self.cls_seg(output)
+        features = self.bottleneck(psp_outs)
+        output = self.cls_seg(features)
+        if return_feat:
+            return output, features
         return output

@@ -92,6 +92,8 @@ class ASPPHead(BaseDecodeHead):
         aspp_outs = [resize(self.image_pool(x), size=x.size()[2:], mode='bilinear', align_corners=self.align_corners)]
         aspp_outs.extend(self.aspp_modules(x))
         aspp_outs = torch.cat(aspp_outs, dim=1)
-        output = self.bottleneck(aspp_outs)
-        output = self.cls_seg(output)
+        features = self.bottleneck(aspp_outs)
+        output = self.cls_seg(features)
+        if return_feat:
+            return output, features
         return output
