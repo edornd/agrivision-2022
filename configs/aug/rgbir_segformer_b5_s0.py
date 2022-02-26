@@ -5,7 +5,7 @@ _base_ = [
     # Dataset
     '../_base_/datasets/agrivision_rgbir.py',
     # Customization
-    '../_base_/custom/aug.py',
+    '../_base_/custom/aug_flip_rot90_jitter_025.py',
     # Training schedule
     '../_base_/schedules/schedule_160k.py'
 ]
@@ -33,4 +33,4 @@ lr_config = dict(_delete_=True,
                  power=1.0,
                  min_lr=1e-7,
                  by_epoch=False)
-data = dict(samples_per_gpu=1, workers_per_gpu=2)
+data = dict(samples_per_gpu=2, workers_per_gpu=2)
