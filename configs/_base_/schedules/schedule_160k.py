@@ -22,4 +22,4 @@ lr_config = dict(policy='poly',
 # runtime settings
 runner = dict(type='IterBasedRunner', max_iters=80_000)
 checkpoint_config = dict(by_epoch=False, interval=10_000)
-evaluation = dict(interval=10_000, metric='mIoU', pre_eval=True)
+evaluation = dict(interval=40_000, metric='mIoU', pre_eval=True)
