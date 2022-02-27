@@ -5,11 +5,11 @@ _base_ = [
     # Dataset
     '../_base_/datasets/agrivision_rgbir.py',
     # Customization
-    '../_base_/custom/aug_flip_rot90_jitter_025.py',
+    '../_base_/custom/aug_flip_rot90_jitter_010.py',
     # Training schedule
     '../_base_/schedules/schedule_160k.py'
 ]
 # Random Seed
 seed = 0
 group = "aug"
-data = dict(samples_per_gpu=2, workers_per_gpu=2)
+data = dict(samples_per_gpu=4, workers_per_gpu=4)

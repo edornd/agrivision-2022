@@ -5,7 +5,7 @@ _base_ = [
     # Dataset
     '../_base_/datasets/agrivision_rgbir.py',
     # Customization
-    '../_base_/custom/aug_flip_rot90_jitter_025.py',
+    '../_base_/custom/aug_flip_rot90_jitter_010.py',
     # Training schedule
     '../_base_/schedules/schedule_160k.py'
 ]
