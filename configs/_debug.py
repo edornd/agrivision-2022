@@ -5,7 +5,7 @@ _base_ = [
     # Dataset
     '_base_/datasets/agrivision_rgbir.py',
     # Customization
-    '_base_/custom/aug.py',
+    '_base_/custom/aug_flip_rot90_jitter_010.py',
     # Training schedule
     '_base_/schedules/schedule_160k.py'
 ]
@@ -36,6 +36,10 @@ lr_config = dict(_delete_=True,
 
 data = dict(samples_per_gpu=1,
             workers_per_gpu=2,
-            train=dict(rare_class_sampling=dict(min_pixels=3000, class_temp=0.01, min_crop_ratio=0.5)))
+            train=dict(sampling=dict(
+                min_pixels=3000,
+                min_crop_ratio=0.5,
+                window_size=128,
+            )))
 custom = dict(aug=dict(debug_interval=10))
 evaluation = dict(interval=1, metric='mIoU', pre_eval=True)

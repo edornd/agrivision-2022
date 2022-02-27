@@ -92,9 +92,9 @@ class CustomModel(SegmentorWrapper):
 
         # Forward on the (possibly augmented) batch with standard segmentation
         losses = super().forward_train(img, img_metas, gt_semantic_seg, seg_weight=None, return_feat=self.augment)
+        aug_losses = dict()
         if self.augment:
             # create empty dict to temporarily store aug outs
-            aug_losses = dict()
             for key, features in losses.items():
                 if not key.endswith("features"):
                     continue

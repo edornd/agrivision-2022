@@ -1,11 +1,11 @@
 import os
 
 from .builder import DATASETS
-from .rcs import RCSDataset
+from .sampling import SamplingDataset
 
 
 @DATASETS.register_module()
-class AgricultureVisionDataset(RCSDataset):
+class AgricultureVisionDataset(SamplingDataset):
 
     CLASSES = ("background", "double_plant", "drydown", "endrow", "nutrient_deficiency", "planter_skip", "water",
                "waterway", "weed_cluster")
