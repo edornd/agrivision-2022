@@ -123,10 +123,7 @@ class CustomModel(SegmentorWrapper):
         class_counts.pop(255, None)
         classwise_confidence = {c: confidence[:, c].mean() for c in class_counts.keys()}
         # vectorize results and update dataset statistics
-        return (
-            self.vectorize(class_counts, device="cpu", dtype=torch.int64),
-            self.vectorize(classwise_confidence, device="cpu", dtype=torch.float32),
-        )
+        return self.vectorize(classwise_confidence, device="cpu", dtype=torch.float32)
 
     def check_keys(self, data: dict, expected: Iterable[str]) -> str:
         """Checks whether one of the given list of keys belongs to the data dictionary.
@@ -173,8 +170,8 @@ class CustomModel(SegmentorWrapper):
         # check if it returned confidence: if so, update dataset stats
         confidence_key = self.check_keys(losses, expected=("decode.confidence", "decode_1.confidence"))
         if confidence_key:
-            counts, confidence = self.compute_classwise_confidence(losses[confidence_key], gt_semantic_seg)
-            self.dataset.update_statistics(counts.cpu().numpy(), confidence.cpu().numpy())
+            confidence = self.compute_classwise_confidence(losses[confidence_key], gt_semantic_seg)
+            self.dataset.update_statistics(confidence.cpu().numpy())
 
         # continue with augmentation invariance
         aug_losses = dict()
