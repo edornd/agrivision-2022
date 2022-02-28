@@ -1,7 +1,8 @@
-from typing import Literal
+from typing import Dict, Literal, Optional, cast
 
 import torch
 from kornia import augmentation as krn
+from kornia.geometry.transform import warp_perspective
 from pydantic import BaseModel
 from torch import nn
 
@@ -21,9 +22,26 @@ class AugParams(BaseModel):
     random_step: float = 90
     jitter_prob: float = 0.3
     jitter_strentgh: float = 0.15
+    perspective_prob: float = 0.0
+    perspective_dist: float = 0.1
     debug_augs: bool = True
     debug_interval: int = 1000
     temperature: Temperature = Temperature()
+
+
+class CustomPerspective(krn.RandomPerspective):
+
+    def apply_transform(self,
+                        input: torch.Tensor,
+                        params: Dict[str, torch.Tensor],
+                        transform: Optional[torch.Tensor] = None) -> torch.Tensor:
+        _, _, height, width = input.shape
+        transform = cast(torch.Tensor, transform)
+        return warp_perspective(input,
+                                transform, (height, width),
+                                mode=self.flags["resample"].name.lower(),
+                                align_corners=self.flags["align_corners"],
+                                padding_mode="reflection")
 
 
 class RepeatableTransform(nn.Module):
@@ -45,6 +63,14 @@ class RepeatableTransform(nn.Module):
                                                  resample="nearest",
                                                  align_corners=True,
                                                  p=1.0)
+        self.perspective_linear = CustomPerspective(distortion_scale=params.perspective_dist,
+                                                    resample="bilinear",
+                                                    align_corners=True,
+                                                    p=params.perspective_prob)
+        self.perspective_nearest = CustomPerspective(distortion_scale=params.perspective_dist,
+                                                     resample="nearest",
+                                                     align_corners=True,
+                                                     p=params.perspective_prob)
         self.hflip = krn.RandomHorizontalFlip(p=params.hflip_prob)
         self.vflip = krn.RandomVerticalFlip(p=params.vflip_prob)
 
@@ -61,6 +87,7 @@ class RepeatableTransform(nn.Module):
             "jitter": self.jitter.forward_parameters(batch_shape),
             "hflip": self.hflip.forward_parameters(batch_shape),
             "vflip": self.vflip.forward_parameters(batch_shape),
+            "perspective": self.perspective_linear.forward_parameters(batch_shape),
             "rotate": rotate_params
         }
         return set_device_recursive(params, device=device)
@@ -70,6 +97,13 @@ class RepeatableTransform(nn.Module):
         # features are usually 128x128, while images are 512x512
         params["hflip"]["batch_shape"] = torch.tensor(new_shape, device=device)
         params["vflip"]["batch_shape"] = torch.tensor(new_shape, device=device)
+        old_dims = params["perspective"]["forward_input_shape"][2:]
+        new_dims = torch.tensor(new_shape[2:], device=device)
+        start = params["perspective"]["start_points"]
+        end = params["perspective"]["end_points"]
+        params["perspective"]["start_points"] = start / old_dims * new_dims
+        params["perspective"]["end_points"] = end / old_dims * new_dims
+        params["perspective"]["forward_input_shape"] = torch.tensor(new_shape, device=device)
         return params
 
     def forward(self,
@@ -85,6 +119,7 @@ class RepeatableTransform(nn.Module):
         # 2. apply geometric tranform on both
         out = self.vflip(self.hflip(inputs, params.get("hflip")), params.get("vflip"))
         out = self.rotate_linear(out, params.get("rotate"))
+        out = self.perspective_linear(out, params.get("perspective"))
         if color_transform:
             # denormalize, apply jitter, renormalize
             out.mul_(self.std).add_(self.mean).div_(255.0)
@@ -97,6 +132,7 @@ class RepeatableTransform(nn.Module):
             mask = mask.float()
             mask_out = self.vflip(self.hflip(mask, params.get("hflip")), params.get("vflip"))
             mask_out = self.rotate_nearest(mask_out, params.get("rotate"))
+            mask_out = self.perspective_nearest(mask_out, params.get("perspective"))
             return out, mask_out.long()
         return out
 
