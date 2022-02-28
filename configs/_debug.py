@@ -1,7 +1,7 @@
 _base_ = [
     '_base_/default_runtime.py',
     # Network Architecture
-    '_base_/models/ocrnet_hr18.py',
+    '_base_/models/fcn_r50-d8.py',
     # Dataset
     '_base_/datasets/agrivision_rgbir.py',
     # Customization
@@ -43,3 +43,4 @@ data = dict(samples_per_gpu=1,
             )))
 custom = dict(aug=dict(debug_interval=10))
 evaluation = dict(interval=1, metric='mIoU', pre_eval=True)
+model = dict(decode_head=dict(return_confidence=True))

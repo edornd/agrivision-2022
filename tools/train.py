@@ -211,6 +211,9 @@ def main():
     model.CLASSES = datasets[0].CLASSES
     # passing checkpoint meta for saving best checkpoint
     meta.update(cfg.checkpoint_config.meta)
+    # if required, point the model to the dataset
+    if "sampling" in cfg.data.train:
+        model.link_dataset(datasets[0])
     train_segmentor(model,
                     datasets,
                     cfg,

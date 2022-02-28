@@ -67,6 +67,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
                  sampler=None,
                  align_corners=False,
                  decoder_params=None,
+                 return_confidence=False,
                  init_cfg=dict(type='Normal', std=0.01, override=dict(name='conv_seg'))):
         super(BaseDecodeHead, self).__init__(init_cfg)
         self._init_inputs(in_channels, in_index, input_transform)
@@ -77,6 +78,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
         self.norm_cfg = norm_cfg
         self.act_cfg = act_cfg
         self.in_index = in_index
+        self.return_confidence = return_confidence
 
         self.ignore_index = ignore_index
         self.align_corners = align_corners
@@ -252,4 +254,6 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
                                                            ignore_index=self.ignore_index)
 
         loss['acc_seg'] = accuracy(seg_logit, seg_label, ignore_index=self.ignore_index)
+        if self.return_confidence:
+            loss['confidence'] = torch.softmax(seg_logit.detach(), dim=1)
         return loss

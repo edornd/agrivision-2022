@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import Iterable, List
 
 import mmcv
 import numpy as np
@@ -8,6 +8,7 @@ import torch.nn as nn
 from matplotlib import pyplot as plt
 from torch.nn import functional as fn
 
+from mmseg.datasets.sampling import SamplingDataset
 from mmseg.models.builder import MODELS
 from mmseg.models.utils.augmentation import AugParams, RepeatableTransform
 from mmseg.models.utils.visualization import subplotimg
@@ -27,6 +28,7 @@ class CustomModel(SegmentorWrapper):
                  **kwargs):
         super().__init__(model_config, max_iters, resume_iters, num_channels, **kwargs)
         aug = aug or {}
+        self.dataset = None
         self.aug_params = AugParams(**aug)
         self.augment = self.aug_params.factor > 0
         self.aug_transform = RepeatableTransform(self.aug_params) if self.augment else None
@@ -42,13 +44,36 @@ class CustomModel(SegmentorWrapper):
         else:
             raise NotImplementedError(f"Unknown loss: '{self.aug.loss}'")
 
+    def link_dataset(self, dataset: SamplingDataset):
+        """Simply stores a pointer to the current training set.
+
+        Args:
+            dataset (SamplingDataset): Dataset with dynamic sampling
+        """
+        self.dataset = dataset
+
     def compute_aug_loss(self,
                          features: torch.Tensor,
                          mask: torch.Tensor,
                          aug_params: dict,
                          split_at: int,
                          prefix: str = "",
-                         debug: bool = False):
+                         debug: bool = False) -> dict:
+        """Computes the augmentation equivariance loss, intended as squared L2 norm between:
+        T(f(x)) <=> f(T(x)), where T indicates augmentations, f(x) the pixel embeddings, namely
+        the features of the model prior to the class convolutions (e.g., a tensor [batch, 768, 128, 128]).
+
+        Args:
+            features (torch.Tensor): feature tensor with size (b, channels, h, w)
+            mask (torch.Tensor): binary mask to exclude ignored areas (1 where valid, 0 where ignored)
+            aug_params (dict): parameters used on the input, necessary to augment the features
+            split_at (int): index on the batch that divides original and augmented features
+            prefix (str, optional): prefix for the output dict. Defaults to "".
+            debug (bool, optional): whether to return extra stuff or not. Defaults to False.
+
+        Returns:
+            Dict[str, Any]: dictionary with additional loss and optional stuff
+        """
         # first part of the batch are the original images, the last the augmented
         f_x = features[:split_at]
         f_tx = features[split_at:]
@@ -65,6 +90,58 @@ class CustomModel(SegmentorWrapper):
         if debug:
             result["debug"] = (f_tx, t_fx, mask, mse_pixelwise.detach().mean(axis=1))
         return result
+
+    def vectorize(self, values: dict, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+        """Transforms the given dictionary of index: value into a tensor of size num_classes,
+        where each position i contains the value of the corresponding index, if present, 0 otherwise.
+
+        Args:
+            values (dict): dictionary of <index: value> pairs
+            device (torch.device): device to store the tensor on
+            dtype (torch.dtype): type of the torch tensor
+
+        Returns:
+            torch.Tensor: torch tensor of size num_classes
+        """
+        array = torch.zeros(self.num_classes, device=device, dtype=dtype)
+        for i, v in values.items():
+            array[i] = v
+        return array
+
+    def compute_classwise_confidence(self, confidence: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        """Reduces the given confidence tensor into classwise values, a vector of length num_classes.
+
+        Args:
+            confidence (torch.Tensor): softmaxed probs, shape [batch, num_classes, h, w]
+            labels (torch.Tensor): index labels, shape [batch, 1, h, w]
+
+        Returns:
+            torch.Tensor: classwise confidence and classwise pixel count on the current batch
+        """
+        classes, counts = torch.unique(labels, return_counts=True)
+        class_counts = dict(zip(classes.tolist(), counts))
+        class_counts.pop(255, None)
+        classwise_confidence = {c: confidence[:, c].mean() for c in class_counts.keys()}
+        # vectorize results and update dataset statistics
+        return (
+            self.vectorize(class_counts, device="cpu", dtype=torch.int64),
+            self.vectorize(classwise_confidence, device="cpu", dtype=torch.float32),
+        )
+
+    def check_keys(self, data: dict, expected: Iterable[str]) -> str:
+        """Checks whether one of the given list of keys belongs to the data dictionary.
+
+        Args:
+            data (dict): dict with a bunch of keys
+            expected (Iterable[str]): list of keys that could appear in the dict.
+
+        Returns:
+            str: the first key that appears, None otherwise.
+        """
+        for key in expected:
+            if key in data:
+                return key
+        return None
 
     def forward_train(self, img: torch.Tensor, img_metas: List[dict], gt_semantic_seg: torch.Tensor):
         # mmcv.print_log(f"iter: {self.local_iter}")
@@ -92,6 +169,14 @@ class CustomModel(SegmentorWrapper):
 
         # Forward on the (possibly augmented) batch with standard segmentation
         losses = super().forward_train(img, img_metas, gt_semantic_seg, seg_weight=None, return_feat=self.augment)
+
+        # check if it returned confidence: if so, update dataset stats
+        confidence_key = self.check_keys(losses, expected=("decode.confidence", "decode_1.confidence"))
+        if confidence_key:
+            counts, confidence = self.compute_classwise_confidence(losses[confidence_key], gt_semantic_seg)
+            self.dataset.update_statistics(counts.cpu().numpy(), confidence.cpu().numpy())
+
+        # continue with augmentation invariance
         aug_losses = dict()
         if self.augment:
             # create empty dict to temporarily store aug outs

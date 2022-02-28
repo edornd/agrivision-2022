@@ -1,6 +1,7 @@
 import json
 import os.path as osp
 from abc import abstractmethod
+from typing import Callable
 
 import mmcv
 import numpy as np
@@ -33,10 +34,11 @@ class FixedBuffer:
     """Abstraction that holds a numpy array and uses it as circular buffer.
     """
 
-    def __init__(self, num_classes: int, max_length: int = 128):
+    def __init__(self, num_classes: int, max_length: int = 128, reduction: Callable = np.sum):
         self.buffer = np.zeros((max_length, num_classes))
         self.num_classes = num_classes
         self.max_length = max_length
+        self.reduction = reduction
         self.index = 0
 
     def append(self, data: np.ndarray):
@@ -44,7 +46,7 @@ class FixedBuffer:
         self.index = (self.index + 1) % self.max_length
 
     def get_counts(self):
-        return self.buffer.sum(axis=0)
+        return self.reduction(self.buffer, axis=0)
 
 
 class SamplingDataset(CustomDataset):
@@ -56,7 +58,9 @@ class SamplingDataset(CustomDataset):
             self.min_crop_ratio = sampling['min_crop_ratio']
             self.min_pixels = sampling['min_pixels']
             # memory buffer holding a fixed amount of class-wise pixel counts
-            self.buffer = FixedBuffer(num_classes=len(self.CLASSES), max_length=sampling["window_size"])
+            buf_len = sampling["window_size"]
+            self.count_buffer = FixedBuffer(num_classes=len(self.CLASSES), max_length=buf_len)
+            self.conf_buffer = FixedBuffer(num_classes=len(self.CLASSES), max_length=buf_len, reduction=np.mean)
 
             self.sampling_classes, self.sampling_probs = get_class_probs(self.data_root)
             mmcv.print_log(f'Classes: {self.sampling_classes}', 'mmseg')
@@ -83,7 +87,7 @@ class SamplingDataset(CustomDataset):
     def get_rare_class_sample(self):
         # select a class with lowest class count in the current window
         # the indexing and +1 exclude the background (no need to oversample that)
-        windowed_counts = self.buffer.get_counts()
+        windowed_counts = self.count_buffer.get_counts()
         # UNCOMMENT THE FOLLOWING LINE TO CHECK PIXELS COUNTS
         # mmcv.print_log(f'counts: {windowed_counts}', 'mmseg')
         c = np.argmin(windowed_counts[1:]) + 1
@@ -98,6 +102,10 @@ class SamplingDataset(CustomDataset):
                 sample = self.prepare_batch(idx)
         return sample
 
+    def update_statistics(self, class_counts: np.ndarray, class_confidence: np.ndarray):
+        self.count_buffer.append(class_counts)
+        self.conf_buffer.append(class_confidence)
+
     @abstractmethod
     def prepare_batch(self, idx: int):
         raise NotImplementedError()
@@ -106,18 +114,5 @@ class SamplingDataset(CustomDataset):
         """Yet another wrapper to switch between RCS and standard random sampling.
         """
         if self.sampling_enabled:
-            sample = self.get_rare_class_sample()
-            label = sample["gt_semantic_seg"].data
-            # update memory: get <index: pixel count> dict
-            # then remove any ignore_index
-            # last, create a class-wise tensor and update buffer
-            indices, counts = np.unique(label, return_counts=True)
-            class_counts = dict(zip(indices, counts))
-            class_counts.pop(255, None)
-            counts = np.zeros(9, dtype=np.int64)
-            for j, value in class_counts.items():
-                counts[j] = value
-            self.buffer.append(counts)
-            # then return the poor sample
-            return sample
+            return self.get_rare_class_sample()
         return self.prepare_batch(idx)
