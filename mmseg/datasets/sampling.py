@@ -85,12 +85,6 @@ class SamplingDataset(CustomDataset):
         f = np.random.choice(self.samples_with_class[c])
         idx = self.file_to_idx[f]
         sample = self.prepare_batch(idx)
-        if self.min_crop_ratio > 0:
-            for _ in range(10):
-                n_class = torch.sum(sample['gt_semantic_seg'].data == (c - 1))
-                if n_class > self.min_pixels * self.min_crop_ratio:
-                    break
-                sample = self.prepare_batch(idx)
         return sample
 
     def update_statistics(self, class_confidence: np.ndarray):
