@@ -206,6 +206,8 @@ class CustomModel(SegmentorWrapper):
                                          stds=stds,
                                          batch_size=batch_size,
                                          prefix=prefix)
+                    # also, print the confidence-based dynamic weights
+                    mmcv.print_log(f'Current weights: {list(self.dataset.conf_buffer.get_counts())}', 'mmseg')
 
         # update the global dictionary of losses with the list of augmentation losses
         losses.update(aug_losses)
