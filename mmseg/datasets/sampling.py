@@ -10,7 +10,7 @@ from mmseg.datasets.buffer import FixedBuffer
 from mmseg.datasets.custom import CustomDataset
 
 
-def get_class_weights(data_root: str, temperature: float):
+def get_class_freqs(data_root: str, temperature: float):
     with open(osp.join(data_root, 'sample_class_stats.json'), 'r') as of:
         sample_class_stats = json.load(of)
     overall_class_stats = {}
@@ -25,7 +25,7 @@ def get_class_weights(data_root: str, temperature: float):
     overall_class_stats = {k: v for k, v in sorted(overall_class_stats.items(), key=lambda item: item[0])}
     freq = torch.tensor(list(overall_class_stats.values()))
     freq = freq / torch.sum(freq)
-    freq = torch.softmax((1 - freq) / temperature, dim=-1)
+    freq = torch.softmax(freq, dim=-1)
     return list(overall_class_stats.keys()), freq.numpy()
 
 
@@ -48,9 +48,9 @@ class SamplingDataset(CustomDataset):
             buf_len = sampling["window_size"]
             self.conf_buffer = FixedBuffer(num_classes=len(self.CLASSES), max_length=buf_len, reduction=np.mean)
 
-            self.class_list, self.class_weights = get_class_weights(self.data_root, sampling["temp"])
+            self.class_list, self.class_freq = get_class_freqs(self.data_root, sampling["temp"])
             mmcv.print_log(f'Classes            : {self.class_list}', 'mmseg')
-            mmcv.print_log(f'Normalized weights.: {self.class_weights}', 'mmseg')
+            mmcv.print_log(f'Normalized weights.: {self.class_freq}', 'mmseg')
 
             with open(osp.join(self.data_root, 'samples_with_class.json'), 'r') as of:
                 samples_with_class_and_n = json.load(of)
@@ -74,7 +74,7 @@ class SamplingDataset(CustomDataset):
         # select a class with lowest class count in the current window
         # the indexing and +1 exclude the background (no need to oversample that)
         average_class_confidence = self.conf_buffer.get_counts()
-        weighted_class_confidence = self.class_weights * (1 - average_class_confidence)
+        weighted_class_confidence = 1 - self.class_freq * average_class_confidence
         weighted_class_confidence = softmax(weighted_class_confidence)
 
         # UNCOMMENT THE FOLLOWING LINE(S) TO CHECK
