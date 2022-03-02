@@ -6,7 +6,7 @@ Repository for CVPRW 2022
 
 ```bash
 pip install -r requirements.txt -f https://download.pytorch.org/whl/torch_stable.html
-pip install mmcv-full==1.4.5
+pip install mmcv-full -f https://download.openmmlab.com/mmcv/dist/cu111/torch1.9/index.html
 pip install -e .
 ```
 
