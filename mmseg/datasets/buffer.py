@@ -1,19 +1,20 @@
 import ctypes
 import multiprocessing as mp
-from typing import Callable
+from typing import Dict
 
 import numpy as np
 
 
-class Counter(object):
+class SharedValue(object):
 
-    def __init__(self, length: int):
-        self.val = mp.Value('i', 0)
-        self.length = length
+    def __init__(self, init_value: float):
+        self.init_value = init_value
+        self.val = mp.Value(ctypes.c_float, init_value)
 
-    def increment(self):
+    def update(self, iters: int):
         with self.val.get_lock():
-            self.val.value = (self.val.value + 1) % self.length
+            alpha = min(1 - 1 / (iters + 1), self.init_value)
+            self.val.value = alpha
 
     @property
     def value(self):
@@ -24,25 +25,22 @@ class FixedBuffer:
     """Abstraction that holds a numpy array and uses it as circular buffer.
     """
 
-    def __init__(self, num_classes: int, max_length: int = 128, reduction: Callable = np.sum):
-        self.shared_base = mp.Array(ctypes.c_float, max_length * num_classes)
-        self.shared_array = np.ctypeslib.as_array(self.shared_base.get_obj()).reshape(max_length, num_classes)
-        self.indexer = Counter(length=max_length)
+    def __init__(self, num_classes: int, alpha: float = 0.968):
+        self.shared_base = mp.Array(ctypes.c_float, num_classes)
+        self.shared_array = np.ctypeslib.as_array(self.shared_base.get_obj())
+        self.alpha = SharedValue(init_value=alpha)
         self.num_classes = num_classes
-        self.max_length = max_length
-        self.reduction = reduction
         self.index = 0
 
-    def append(self, data: np.ndarray):
+    def append(self, data: Dict[int, float], iters: int):
         with self.shared_base.get_lock():  # synchronize access
-            arr = np.ctypeslib.as_array(self.shared_base.get_obj()).reshape(self.max_length,
-                                                                            self.num_classes)  # no data copying
-            arr[self.indexer.value] = data
-            self.indexer.increment()
+            self.alpha.update(iters)
+            alpha = self.alpha.value
+            arr = np.ctypeslib.as_array(self.shared_base.get_obj())  # no data copying
+            for c, v in data.items():
+                arr[c] = arr[c] * alpha + (1 - alpha) * v
 
     def get_counts(self):
         with self.shared_base.get_lock():  # synchronize access
-            arr = np.ctypeslib.as_array(self.shared_base.get_obj()).reshape(self.max_length,
-                                                                            self.num_classes)  # no data copying
-            avg = self.reduction(arr, axis=0)
-        return avg
+            arr = np.ctypeslib.as_array(self.shared_base.get_obj())  # no data copying
+        return arr

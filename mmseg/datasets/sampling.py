@@ -1,6 +1,7 @@
 import json
 import os.path as osp
 from abc import abstractmethod
+from typing import Dict
 
 import mmcv
 import numpy as np
@@ -10,7 +11,7 @@ from mmseg.datasets.buffer import FixedBuffer
 from mmseg.datasets.custom import CustomDataset
 
 
-def get_class_freqs(data_root: str, temperature: float):
+def get_class_freqs(data_root: str, temperature: float, minmax: bool = False):
     with open(osp.join(data_root, 'sample_class_stats.json'), 'r') as of:
         sample_class_stats = json.load(of)
     overall_class_stats = {}
@@ -25,7 +26,10 @@ def get_class_freqs(data_root: str, temperature: float):
     overall_class_stats = {k: v for k, v in sorted(overall_class_stats.items(), key=lambda item: item[0])}
     freq = torch.tensor(list(overall_class_stats.values()))
     freq = freq / torch.sum(freq)
-    freq = torch.softmax(freq, dim=-1)
+    if minmax:
+        freq = (freq - freq.min() + temperature) / (freq.max() - freq.min() + temperature)
+    else:
+        freq = torch.softmax(freq, dim=-1)
     return list(overall_class_stats.keys()), freq.numpy()
 
 
@@ -42,15 +46,17 @@ class SamplingDataset(CustomDataset):
         super().__init__(**kwargs)
         self.sampling_enabled = sampling is not None
         if self.sampling_enabled:
-            self.min_crop_ratio = sampling['min_crop_ratio']
             self.min_pixels = sampling['min_pixels']
+            self.gamma = sampling.get("gamma", 1)
             # memory buffer holding a fixed amount of class-wise pixel counts
-            buf_len = sampling["window_size"]
-            self.conf_buffer = FixedBuffer(num_classes=len(self.CLASSES), max_length=buf_len, reduction=np.mean)
+            alpha = sampling["alpha"]
+            self.conf_buffer = FixedBuffer(num_classes=len(self.CLASSES), alpha=alpha)
 
-            self.class_list, self.class_freq = get_class_freqs(self.data_root, sampling["temp"])
+            self.class_list, self.class_freq = get_class_freqs(self.data_root, sampling["temp"],
+                                                               sampling.get("minmax", False))
             mmcv.print_log(f'Classes            : {self.class_list}', 'mmseg')
             mmcv.print_log(f'Normalized weights.: {self.class_freq}', 'mmseg')
+            mmcv.print_log(f'minmax             : {sampling["minmax"]}', 'mmseg')
 
             with open(osp.join(self.data_root, 'samples_with_class.json'), 'r') as of:
                 samples_with_class_and_n = json.load(of)
@@ -70,12 +76,15 @@ class SamplingDataset(CustomDataset):
                 file = dic['ann']['seg_map']
                 self.file_to_idx[file] = i
 
-    def get_rare_class_sample(self):
-        # select a class with lowest class count in the current window
-        # the indexing and +1 exclude the background (no need to oversample that)
+    def compute_probs(self):
         average_class_confidence = self.conf_buffer.get_counts()
         weighted_class_confidence = 1 - self.class_freq * average_class_confidence
-        weighted_class_confidence = softmax(weighted_class_confidence)
+        weighted_class_confidence = softmax(weighted_class_confidence**self.gamma)
+        return weighted_class_confidence
+
+    def get_rare_class_sample(self):
+        # compute weights for random sampling
+        weighted_class_confidence = self.compute_probs()
 
         # UNCOMMENT THE FOLLOWING LINE(S) TO CHECK
         c = np.random.choice(self.class_list, p=weighted_class_confidence)
@@ -87,9 +96,9 @@ class SamplingDataset(CustomDataset):
         sample = self.prepare_batch(idx)
         return sample
 
-    def update_statistics(self, class_confidence: np.ndarray):
+    def update_statistics(self, class_confidence: Dict[int, float], iters: int):
         # mmcv.print_log(f'batch:   {class_confidence}', 'mmseg')
-        self.conf_buffer.append(class_confidence)
+        self.conf_buffer.append(class_confidence, iters=iters)
 
     @abstractmethod
     def prepare_batch(self, idx: int):

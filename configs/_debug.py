@@ -34,14 +34,16 @@ lr_config = dict(_delete_=True,
                  min_lr=0.0,
                  by_epoch=False)
 
-data = dict(samples_per_gpu=1,
+data = dict(samples_per_gpu=2,
             workers_per_gpu=2,
             train=dict(sampling=dict(
                 min_pixels=3000,
                 min_crop_ratio=0.5,
-                temp=1.0,
-                window_size=128,
+                temp=0.1,
+                minmax=True,
+                alpha=0.968,
+                gamma=4.0,
             )))
 custom = dict(aug=dict(debug_interval=10))
-evaluation = dict(interval=1000, metric='mIoU', pre_eval=True)
+evaluation = dict(interval=10_000, metric='mIoU', pre_eval=True)
 model = dict(decode_head=dict(return_confidence=True))

@@ -34,15 +34,14 @@ lr_config = dict(_delete_=True,
                  min_lr=1e-7,
                  by_epoch=False)
 
-data = dict(
-    samples_per_gpu=2,
-    workers_per_gpu=2,
-    # dynamic sampling active if sampling is present
-    train=dict(sampling=dict(
-        min_pixels=3000,
-        min_crop_ratio=0.5,
-        temp=1.0,
-        window_size=128,
-    )))
+data = dict(samples_per_gpu=2,
+            workers_per_gpu=2,
+            train=dict(sampling=dict(
+                min_pixels=3000,
+                temp=0.1,
+                minmax=True,
+                alpha=0.968,
+                gamma=4.0,
+            )))
 # important: for dynamic sampling also set return_confidence=True
 model = dict(decode_head=dict(return_confidence=True))
