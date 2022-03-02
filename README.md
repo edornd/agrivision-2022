@@ -19,7 +19,7 @@ pip install -e .
 
 ### Multi GPU
 ```bash
- CUDA_VISIBLE_DEVICES=$DEVICES source tools/dist_train.sh [CONFIG_FILE] [NUM_GPUS] [OPTIONS]
+ source scripts/dist_train.sh [GPUS, e.g. 0,1] [CONFIG_FILE] [OPTIONS]
 ```
 
 ## Testing
