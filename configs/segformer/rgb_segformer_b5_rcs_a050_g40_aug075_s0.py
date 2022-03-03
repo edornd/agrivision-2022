@@ -37,10 +37,10 @@ lr_config = dict(_delete_=True,
 data = dict(samples_per_gpu=4,
             workers_per_gpu=4,
             train=dict(sampling=dict(
-                min_pixels=3000,
+                min_pixels=0,
                 temp=0.1,
-                minmax=True,
-                alpha=0.968,
+                minmax=False,
+                alpha=0.5,
                 gamma=4.0,
             )))
 # important: for dynamic sampling also set return_confidence=True
