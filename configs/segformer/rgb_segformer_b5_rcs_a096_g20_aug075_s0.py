@@ -40,7 +40,7 @@ data = dict(samples_per_gpu=4,
                 min_pixels=0,
                 temp=0.1,
                 minmax=False,
-                alpha=0.75,
+                alpha=0.968,
                 gamma=2.0,
             )))
 # important: for dynamic sampling also set return_confidence=True
