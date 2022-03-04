@@ -41,7 +41,7 @@ data = dict(samples_per_gpu=4,
                 temp=0.1,
                 minmax=False,
                 alpha=0.968,
-                gamma=2.0,
+                gamma=4.0,
             )))
 # important: for dynamic sampling also set return_confidence=True
 model = dict(decode_head=dict(return_confidence=True))
