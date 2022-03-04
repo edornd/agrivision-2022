@@ -213,7 +213,9 @@ class CustomModel(SegmentorWrapper):
                     # also, print the confidence-based dynamic weights
                     if self.dataset:
                         probs = self.dataset.compute_probs()
-                        mmcv.print_log(f'Current probs: {probs}', 'mmseg')
+                        confs = self.dataset.conf_buffer.get_counts()
+                        mmcv.print_log(f'Current probs:  {probs}', 'mmseg')
+                        mmcv.print_log(f"classwise conf: {confs}", 'mmseg')
 
         # update the global dictionary of losses with the list of augmentation losses
         losses.update(aug_losses)
