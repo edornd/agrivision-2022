@@ -121,7 +121,12 @@ class CustomModel(SegmentorWrapper):
         classes, counts = torch.unique(labels, return_counts=True)
         class_counts = dict(zip(classes.tolist(), counts))
         class_counts.pop(255, None)
-        classwise_confidence = {c: confidence[:, c].mean().item() for c in class_counts.keys()}
+        classwise_confidence = dict()
+        for category in class_counts.keys():
+            # [ n, 512, 512], label is [n, 1, 512, 512]
+            channel_conf = confidence[:, category]
+            classwise_conf = channel_conf[labels.squeeze(1) == category].mean()
+            classwise_confidence[category] = classwise_conf
         return classwise_confidence
 
     def check_keys(self, data: dict, expected: Iterable[str]) -> str:
