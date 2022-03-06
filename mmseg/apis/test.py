@@ -79,6 +79,7 @@ def single_gpu_test(model,
                     channels: list = [2, 1, 0],
                     efficient_test=False,
                     opacity=0.5,
+                    show=False,
                     show_all=False,
                     show_labels=False,
                     pre_eval=False,
@@ -130,7 +131,9 @@ def single_gpu_test(model,
     loader_indices = data_loader.batch_sampler
 
     for batch_indices, data in zip(loader_indices, data_loader):
-        labels = data.pop("gt_semantic_seg")[0]
+        labels = data.pop("gt_semantic_seg", None)
+        if labels:
+            labels = labels[0]
         with torch.no_grad():
             result = model(return_loss=False, **data)
 
