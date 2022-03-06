@@ -218,7 +218,8 @@ def main():
         tmpdir = None
 
     if not distributed:
-        show_dir = str(Path(work_dir) / "preds") if args.show else None
+        suffix = "mask" if args.opacity > 0 else args.channels
+        show_dir = str(Path(work_dir) / f"preds_{suffix}") if args.show else None
         channels = [2, 1, 0] if args.channels == "rgb" else [3, 2, 1]
 
         warnings.warn('SyncBN is only supported with DDP. To be compatible with DP, '
