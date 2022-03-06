@@ -2,6 +2,7 @@
 import os.path as osp
 import tempfile
 import warnings
+from pathlib import Path
 
 import mmcv
 import numpy as np
@@ -78,6 +79,8 @@ def single_gpu_test(model,
                     channels: list = [2, 1, 0],
                     efficient_test=False,
                     opacity=0.5,
+                    show_all=False,
+                    show_labels=False,
                     pre_eval=False,
                     format_only=False,
                     format_args={}):
@@ -127,6 +130,7 @@ def single_gpu_test(model,
     loader_indices = data_loader.batch_sampler
 
     for batch_indices, data in zip(loader_indices, data_loader):
+        labels = data.pop("gt_semantic_seg")[0]
         with torch.no_grad():
             result = model(return_loss=False, **data)
 
@@ -137,24 +141,42 @@ def single_gpu_test(model,
             imgs = tensor2imgs(img_tensor, **img_metas[0]['img_norm_cfg'], plot_chs=channels)
             assert len(imgs) == len(img_metas)
 
-            for img, img_meta in zip(imgs, img_metas):
+            for img, img_meta, y_true in zip(imgs, img_metas, labels):
                 h, w, _ = img_meta['img_shape']
                 img_show = img[:h, :w, :]
 
                 ori_h, ori_w = img_meta['ori_shape'][:-1]
                 img_show = mmcv.imresize(img_show, (ori_w, ori_h))
 
-                if out_dir:
+                if not show_all:
                     out_file = osp.join(out_dir, img_meta['ori_filename'])
+                    model.module.show_result(img_show,
+                                             result,
+                                             palette=dataset.PALETTE,
+                                             show=False,
+                                             out_file=out_file,
+                                             opacity=opacity)
                 else:
-                    out_file = None
-
-                model.module.show_result(img_show,
-                                         result,
-                                         palette=dataset.PALETTE,
-                                         show=False,
-                                         out_file=out_file,
-                                         opacity=opacity)
+                    basename = Path(img_meta["ori_filename"]).stem
+                    model.module.show_result(img_show,
+                                             result,
+                                             palette=dataset.PALETTE,
+                                             show=False,
+                                             out_file=osp.join(out_dir, f"{basename}_rgb.jpg"),
+                                             opacity=0)
+                    model.module.show_result(img_show,
+                                             result,
+                                             palette=dataset.PALETTE,
+                                             show=False,
+                                             out_file=osp.join(out_dir, f"{basename}_pred.jpg"),
+                                             opacity=1)
+                    if show_labels:
+                        model.module.show_result(img_show,
+                                                 y_true,
+                                                 palette=dataset.PALETTE,
+                                                 show=False,
+                                                 out_file=osp.join(out_dir, f"{basename}_true.jpg"),
+                                                 opacity=1)
 
         if efficient_test:
             result = [np2tmp(_, tmpdir='.efficient_test') for _ in result]

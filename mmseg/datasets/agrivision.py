@@ -33,6 +33,9 @@ class AgricultureVisionDataset(SamplingDataset):
     def prepare_test_img(self, idx: int):
         img_info = self.img_infos[idx]
         nir_info = self.nir_infos[idx]
+        ann_info = self.img_infos[idx].get('ann')
         results = dict(img_info=img_info, nir_info=nir_info)
+        if ann_info is not None:
+            results["ann_info"] = ann_info
         self.pre_pipeline(results)
         return self.pipeline(results)

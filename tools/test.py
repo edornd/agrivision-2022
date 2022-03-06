@@ -20,6 +20,24 @@ from mmseg.datasets import build_dataloader, build_dataset
 from mmseg.models import build_segmentor
 from mmseg.utils import setup_multi_processes
 
+custom_pipeline = [
+    dict(type='LoadImageFromFile', include_nir=True),
+    dict(type='LoadAnnotations'),
+    dict(type='MultiScaleFlipAug',
+         img_scale=(512, 512),
+         flip=False,
+         transforms=[
+             dict(type='Resize', keep_ratio=True),
+             dict(type='RandomFlip'),
+             dict(type='Normalize',
+                  mean=[123.675, 116.28, 103.53, 123.675],
+                  std=[58.395, 57.12, 57.375, 58.395],
+                  to_rgb=True),
+             dict(type='ImageToTensor', keys=['img', 'gt_semantic_seg']),
+             dict(type='Collect', keys=['img', 'gt_semantic_seg'])
+         ])
+]
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='mmseg test (and eval) a model')
@@ -41,6 +59,9 @@ def parse_args():
                         help='evaluation metrics, which depends on the dataset, e.g., "mIoU"'
                         ' for generic datasets, and "cityscapes" for Cityscapes')
     parser.add_argument('--show', action='store_true', help='show results')
+    parser.add_argument('--show-all', action='store_true', help='show results')
+    parser.add_argument('--show-labels', action='store_true', help='show results')
+
     parser.add_argument('--show-dir', help='directory where painted images will be saved')
     parser.add_argument('--gpu-collect', action='store_true', help='whether to use gpu to collect results.')
     parser.add_argument('--gpu-id',
@@ -111,6 +132,8 @@ def main():
     cfg = mmcv.Config.fromfile(args.config)
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
+
+    cfg.data.test.pipeline = custom_pipeline
 
     # set multi-process settings
     setup_multi_processes(cfg)
@@ -220,6 +243,9 @@ def main():
     if not distributed:
         suffix = "mask" if args.opacity > 0 else args.channels
         show_dir = str(Path(work_dir) / f"preds_{suffix}") if args.show else None
+        # when we want to plot all together
+        if args.show_all:
+            show_dir = str(Path(work_dir) / "preds")
         channels = [2, 1, 0] if args.channels == "rgb" else [3, 2, 1]
 
         warnings.warn('SyncBN is only supported with DDP. To be compatible with DP, '
@@ -236,6 +262,8 @@ def main():
                                   channels=channels,
                                   efficient_test=False,
                                   opacity=args.opacity,
+                                  show_all=args.show_all,
+                                  show_labels=args.show_labels,
                                   pre_eval=args.eval is not None and not eval_on_format_results,
                                   format_only=args.format_only or eval_on_format_results,
                                   format_args=eval_kwargs)
