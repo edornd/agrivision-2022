@@ -23,6 +23,17 @@ pip install -e .
 ```
 
 ## Testing
+Evaluation only:
 ```bash
- CUDA_VISIBLE_DEVICES=$DEVICES python tools/test.py [CONFIG] [CHECKPOINT] --eval mIoU
+ CUDA_VISIBLE_DEVICES=$DEVICES python tools/test.py [CONFIG] --eval mIoU
+```
+
+Evaluate generating images:
+```bash
+ # evaluate while plotting masks
+ CUDA_VISIBLE_DEVICES=$DEVICES python tools/test.py [CONFIG] --eval mIoU --show --opacity=1
+ # evaluate while plotting RGB images
+ CUDA_VISIBLE_DEVICES=$DEVICES python tools/test.py [CONFIG] --eval mIoU --show --opacity=0
+ # evaluate while plotting IRRG images
+ CUDA_VISIBLE_DEVICES=$DEVICES python tools/test.py [CONFIG] --eval mIoU --show --opacity=0 --channels irrg
 ```

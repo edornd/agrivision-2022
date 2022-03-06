@@ -72,7 +72,7 @@ def parse_args():
                         'is allowed.')
     parser.add_argument('--eval-options', nargs='+', action=DictAction, help='custom options for evaluation')
     parser.add_argument('--launcher', choices=['none', 'pytorch', 'slurm', 'mpi'], default='none', help='job launcher')
-    parser.add_argument('--channels', choices=['rgb', 'rgbir'], default='rgb', help='channels to plot')
+    parser.add_argument('--channels', choices=['rgb', 'irrg'], default='rgb', help='channels to plot')
     parser.add_argument('--opacity',
                         type=float,
                         default=0.5,
@@ -219,7 +219,7 @@ def main():
 
     if not distributed:
         show_dir = str(Path(work_dir) / "preds") if args.show else None
-        channels = [2, 1, 0] if args.channels == "rgb" else [2, 1, 3]
+        channels = [2, 1, 0] if args.channels == "rgb" else [3, 2, 1]
 
         warnings.warn('SyncBN is only supported with DDP. To be compatible with DP, '
                       'we convert SyncBN to BN. Please use dist_train.sh which can '
