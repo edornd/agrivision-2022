@@ -5,6 +5,7 @@ import os.path as osp
 import shutil
 import time
 import warnings
+from pathlib import Path
 
 import mmcv
 import torch
@@ -23,7 +24,7 @@ from mmseg.utils import setup_multi_processes
 def parse_args():
     parser = argparse.ArgumentParser(description='mmseg test (and eval) a model')
     parser.add_argument('config', help='test config file path')
-    parser.add_argument('checkpoint', help='checkpoint file')
+    parser.add_argument('--checkpoint', required=False, help='checkpoint file, latest.pth if not specified')
     parser.add_argument('--work-dir',
                         help=('if specified, the evaluation metric results will be dumped'
                               'into the directory as json'))
@@ -71,6 +72,7 @@ def parse_args():
                         'is allowed.')
     parser.add_argument('--eval-options', nargs='+', action=DictAction, help='custom options for evaluation')
     parser.add_argument('--launcher', choices=['none', 'pytorch', 'slurm', 'mpi'], default='none', help='job launcher')
+    parser.add_argument('--channels', choices=['rgb', 'rgbir'], default='rgb', help='channels to plot')
     parser.add_argument('--opacity',
                         type=float,
                         default=0.5,
@@ -169,10 +171,14 @@ def main():
 
     # build the model and load checkpoint
     cfg.model.train_cfg = None
-    model = build_segmentor(cfg.model, test_cfg=cfg.get('test_cfg'))
+    model = build_segmentor(cfg, test_cfg=cfg.get('test_cfg'))
+    model.adapt_input()
     fp16_cfg = cfg.get('fp16', None)
     if fp16_cfg is not None:
         wrap_fp16_model(model)
+
+    if not args.checkpoint:
+        args.checkpoint = str(Path(work_dir) / "latest.pth")
     checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
     if 'CLASSES' in checkpoint.get('meta', {}):
         model.CLASSES = checkpoint['meta']['CLASSES']
@@ -212,6 +218,9 @@ def main():
         tmpdir = None
 
     if not distributed:
+        show_dir = str(Path(work_dir) / "preds") if args.show else None
+        channels = [2, 1, 0] if args.channels == "rgb" else [2, 1, 3]
+
         warnings.warn('SyncBN is only supported with DDP. To be compatible with DP, '
                       'we convert SyncBN to BN. Please use dist_train.sh which can '
                       'avoid this error.')
@@ -222,10 +231,10 @@ def main():
         model = MMDataParallel(model, device_ids=cfg.gpu_ids)
         results = single_gpu_test(model,
                                   data_loader,
-                                  args.show,
-                                  args.show_dir,
-                                  False,
-                                  args.opacity,
+                                  show_dir,
+                                  channels=channels,
+                                  efficient_test=False,
+                                  opacity=args.opacity,
                                   pre_eval=args.eval is not None and not eval_on_format_results,
                                   format_only=args.format_only or eval_on_format_results,
                                   format_args=eval_kwargs)

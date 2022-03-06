@@ -25,8 +25,7 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
     @property
     def with_auxiliary_head(self):
         """bool: whether the segmentor has auxiliary head"""
-        return hasattr(self,
-                       'auxiliary_head') and self.auxiliary_head is not None
+        return hasattr(self, 'auxiliary_head') and self.auxiliary_head is not None
 
     @property
     def with_decode_head(self):
@@ -138,10 +137,7 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         losses = self(**data_batch)
         loss, log_vars = self._parse_losses(losses)
 
-        outputs = dict(
-            loss=loss,
-            log_vars=log_vars,
-            num_samples=len(data_batch['img_metas']))
+        outputs = dict(loss=loss, log_vars=log_vars, num_samples=len(data_batch['img_metas']))
 
         return outputs
 
@@ -155,10 +151,7 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         losses = self(**data_batch)
         loss, log_vars = self._parse_losses(losses)
 
-        outputs = dict(
-            loss=loss,
-            log_vars=log_vars,
-            num_samples=len(data_batch['img_metas']))
+        outputs = dict(loss=loss, log_vars=log_vars, num_samples=len(data_batch['img_metas']))
 
         return outputs
 
@@ -182,19 +175,16 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
             elif isinstance(loss_value, list):
                 log_vars[loss_name] = sum(_loss.mean() for _loss in loss_value)
             else:
-                raise TypeError(
-                    f'{loss_name} is not a tensor or list of tensors')
+                raise TypeError(f'{loss_name} is not a tensor or list of tensors')
 
-        loss = sum(_value for _key, _value in log_vars.items()
-                   if 'loss' in _key)
+        loss = sum(_value for _key, _value in log_vars.items() if 'loss' in _key)
 
         # If the loss_vars has different length, raise assertion error
         # to prevent GPUs from infinite waiting.
         if dist.is_available() and dist.is_initialized():
             log_var_length = torch.tensor(len(log_vars), device=loss.device)
             dist.all_reduce(log_var_length)
-            message = (f'rank {dist.get_rank()}' +
-                       f' len(log_vars): {len(log_vars)}' + ' keys: ' +
+            message = (f'rank {dist.get_rank()}' + f' len(log_vars): {len(log_vars)}' + ' keys: ' +
                        ','.join(log_vars.keys()) + '\n')
             assert log_var_length == len(log_vars) * dist.get_world_size(), \
                 'loss log variables are different across GPUs!\n' + message
@@ -209,15 +199,7 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
 
         return loss, log_vars
 
-    def show_result(self,
-                    img,
-                    result,
-                    palette=None,
-                    win_name='',
-                    show=False,
-                    wait_time=0,
-                    out_file=None,
-                    opacity=0.5):
+    def show_result(self, img, result, palette=None, win_name='', show=False, wait_time=0, out_file=None, opacity=0.5):
         """Draw `result` over `img`.
 
         Args:
@@ -253,8 +235,7 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
                 state = np.random.get_state()
                 np.random.seed(42)
                 # random palette
-                palette = np.random.randint(
-                    0, 255, size=(len(self.CLASSES), 3))
+                palette = np.random.randint(0, 255, size=(len(self.CLASSES), 3))
                 np.random.set_state(state)
             else:
                 palette = self.PALETTE
@@ -262,7 +243,7 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         assert palette.shape[0] == len(self.CLASSES)
         assert palette.shape[1] == 3
         assert len(palette.shape) == 2
-        assert 0 < opacity <= 1.0
+        assert 0 <= opacity <= 1.0
         color_seg = np.zeros((seg.shape[0], seg.shape[1], 3), dtype=np.uint8)
         for label, color in enumerate(palette):
             color_seg[seg == label, :] = color
