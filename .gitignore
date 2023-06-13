@@ -104,14 +104,11 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-data
 .vscode
 .idea
 
 # custom
 *.pkl
-*.pkl.json
-*.log.json
 work_dirs/
 mmseg/.mim
 
