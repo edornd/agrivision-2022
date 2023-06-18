@@ -16,6 +16,11 @@ Well, there are mostly two contributions in this work: augmentation invariance, 
 1. The augmentation invariance regularization is computed in [custom.py](https://github.com/edornd/agrivision-2022/blob/5d3a72a4310de94df81ad753f2a2f1691a96f1dc/mmseg/models/custom.py#L147)
 2. The adaptive sampling is part of the dataset, in [sampling.py](https://github.com/edornd/agrivision-2022/blob/5d3a72a4310de94df81ad753f2a2f1691a96f1dc/mmseg/datasets/sampling.py#L43)
 
+## Preparation
+
+Before training, you will need to format the dataset so that the labels and the boundaries are merged into a single image.
+Follow the [conversion script](tools/convert_datasets/agrivision.py) located inside tools to carry this out.
+
 ## Training
 
 ### Single GPU
